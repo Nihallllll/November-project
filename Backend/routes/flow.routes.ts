@@ -1,0 +1,31 @@
+import { Router } from 'express';
+import { FlowController } from '../controllers/flow.controller';
+
+const router = Router();
+
+// ========== FLOW ROUTES ==========
+
+// Create new flow
+router.post("/flows", FlowController.createFlow);
+
+// Get all flows
+router.get("/flows", FlowController.listFlows);
+
+// Get one flow
+router.get("/flows/:id", FlowController.getFlow);
+
+// Update flow
+router.put("/flows/:id", FlowController.updateFlow);
+
+// Delete flow
+router.delete("/flows/:id", FlowController.deleteFlow);
+
+// Manually trigger flow execution
+router.post("/flows/:id/run", FlowController.runFlow);
+
+// ========== RUN ROUTES ==========
+
+// Get run details
+router.get("/runs/:id", FlowController.getRun);
+
+export default router;
