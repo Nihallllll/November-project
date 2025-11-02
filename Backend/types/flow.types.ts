@@ -1,3 +1,7 @@
+import type { Connection } from "@solana/web3.js";
+
+
+
 // ========== FLOW DEFINITION TYPES ==========
 
 export interface Node {
@@ -65,6 +69,9 @@ export interface ExecutionContext {
   userId: string;
   logger: (message: string) => void;
   saveNodeOutput: (nodeId: string, output: any) => Promise<void>;
+  web3?: {
+    solana : Connection
+  }
 }
 
 // ========== API REQUEST/RESPONSE TYPES ==========
