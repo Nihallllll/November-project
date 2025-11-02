@@ -44,7 +44,7 @@ export class FlowController {
   // GET /api/v1/flows/:id - Get one flow
   static async getFlow(req: Request, res: Response) {
     try {
-      const flow = await FlowRepository.findById(req.params.id);
+      const flow = await FlowRepository.findById((req.params.id) as string);
       
       if (!flow) {
         return res.status(404).json({ 
@@ -85,7 +85,7 @@ export class FlowController {
     try {
       const { name, flowJson } = req.body;
       
-      const flow = await FlowRepository.update(req.params.id, name, flowJson);
+      const flow = await FlowRepository.update((req.params.id) as string, name, flowJson);
       
       res.json({ success: true, data: flow });
     } catch (error: any) {
@@ -100,7 +100,7 @@ export class FlowController {
   // DELETE /api/v1/flows/:id - Delete flow
   static async deleteFlow(req: Request, res: Response) {
     try {
-      await FlowRepository.delete(req.params.id);
+      await FlowRepository.delete((req.params.id) as string );
       
       res.json({ success: true, message: "Flow deleted" });
     } catch (error: any) {
@@ -129,6 +129,7 @@ export class FlowController {
       
       res.json({ 
         success: true, 
+        data : triggerFlow,
         message: "Flow execution queued" 
       });
     } catch (error: any) {
@@ -143,7 +144,7 @@ export class FlowController {
   // GET /api/v1/runs/:id - Get run details
   static async getRun(req: Request, res: Response) {
     try {
-      const run = await RunRepositories.findById(req.params.id);
+      const run = await RunRepositories.findById((req.params.id) as string);
       
       if (!run) {
         return res.status(404).json({ 

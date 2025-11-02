@@ -2,7 +2,7 @@ import prisma from "../config/database";
 
 export class RunRepositories {
     static async create(flowId : string , input?: any){
-        await prisma.run.create({
+       return await prisma.run.create({
             data :{
                 flowId ,
                 status : "queued",
@@ -12,7 +12,7 @@ export class RunRepositories {
     }
 
     static async findById(id :string ){
-        await prisma.run.findUnique({
+       return await prisma.run.findUnique({
             where :{
                 id 
             }, include :{

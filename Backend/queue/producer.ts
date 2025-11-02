@@ -1,11 +1,14 @@
 import { Queue } from "bullmq";
 import redis from "../config/redis";
 
+const flowExecutionQueue = new Queue('flow-execution', { 
+    connection: redis  
+});
 
-const flowExecutionQueue = new Queue('foo');
-
-export async function enqueueFlowExecution (flowId : string , input : any): Promise<any> {
- return await flowExecutionQueue.add('flow-execution', { flowId , input ,triggeredAt : new Date() });
+export async function enqueueFlowExecution(runId: string, input: any) {
+    return await flowExecutionQueue.add('execute', {
+        runId,
+        input,
+        triggeredAt: new Date()
+    });
 }
-
-
