@@ -9,7 +9,7 @@ export class FlowController {
   // POST /api/v1/flows - Create new flow
   static async createFlow(req: Request, res: Response) {
     try {
-      const { name, flowJson } = req.body;
+      const { name, flowJson , schedule } = req.body;
       
       // Basic validation
       if (!name || !flowJson) {
@@ -29,7 +29,7 @@ export class FlowController {
       // TODO: Will add authentication later
       const ownerId = "user_123";
       
-      const flow = await FlowRepository.create(name, flowJson, ownerId);
+      const flow = await FlowRepository.create(name, flowJson, ownerId , schedule);
       
       res.status(201).json({ success: true, data: flow });
     } catch (error: any) {
@@ -137,6 +137,34 @@ export class FlowController {
       res.status(500).json({ 
         success: false, 
         error: error.message 
+      });
+    }
+  }
+  
+  static async triggerFlow(req: Request, res: Response) {
+    try {
+      const flowId = req.params.flowId;
+
+      if (!flowId) {
+        return res.status(400).json({
+          success: false,
+          error: "Flow id is required"
+        });
+      }
+
+      console.log(`🚀 Manual trigger for flow: ${flowId}`);
+      const result = await ExecutionService.triggerFlow(flowId, null);
+
+      res.json({
+        success: true,
+        data: result,
+        message: "Flow triggered successfully!"
+      });
+
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message
       });
     }
   }

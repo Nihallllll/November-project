@@ -1,144 +1,104 @@
 import type { NodeHandler } from "./node-handler.interface";
-import {
-  PythHttpClient,
-  getPythProgramKeyForCluster,
-} from "@pythnetwork/client";
 
 /**
- * PYTH PRICE NODE
- *
- * What it does:
- * - Gets real-time price data from Pyth Network oracle
- * - Returns price, confidence interval, and timestamp
- *
- * Pyth is a blockchain oracle that provides:
- * - Real-time prices (updates every 400ms)
- * - Confidence intervals (price accuracy)
- * - For 200+ assets (crypto, stocks, forex, commodities)
- *
+ * CRYPTO PRICE NODE (CoinGecko API)
+ * 
+ * Fetches real-time cryptocurrency prices from CoinGecko
+ * 
  * Configuration (nodeData):
- * - symbol: string (required) - Price feed symbol
- *   Examples: "Crypto.SOL/USD", "Crypto.BTC/USD", "Crypto.ETH/USD"
- * - network: 'mainnet-beta' | 'devnet' (optional)
- *
+ * - coinId: string (optional) - CoinGecko coin ID (e.g., "bitcoin", "solana", "ethereum")
+ * - symbol: string (deprecated) - Legacy support for old flows
+ * 
+ * If neither coinId nor symbol is provided, defaults to "solana"
+ * 
+ * Find coin IDs at:
+ * - API: https://api.coingecko.com/api/v3/coins/list
+ * - Google Sheet: https://docs.google.com/spreadsheets/d/1wTTuxXt8n9q7C4NDXqQpI3wpKu1_5bGVmP9Xz0XGSyU/edit
+ * - Website: Visit coin page on CoinGecko.com → "API ID" in info section
+ * 
+ * Input: Previous node output (optional)
+ * 
  * Output:
  * {
+ *   coinId: string,
  *   symbol: string,
- *   price: number,           // Current price
- *   confidence: number,      // Price confidence interval
- *   timestamp: Date,         // When price was updated
- *   expo: number             // Price exponent (for precision)
- * }
- *
- * Example usage:
- * {
- *   "type": "pyth_price",
- *   "data": {
- *     "symbol": "Crypto.SOL/USD"
- *   }
+ *   price: number,
+ *   timestamp: Date
  * }
  */
 
 export const pythPriceNode: NodeHandler = {
   type: "pyth_price",
-
   execute: async (nodeData, input, context) => {
-    // ========== STEP 1: VALIDATE INPUT ==========
-
-    const { symbol, network = "devnet" } = nodeData;
-
-    if (!symbol) {
-      throw new Error("pyth_price: symbol is required");
+    // ========== STEP 1: GET COIN ID FROM NODE DATA ==========
+    
+    // Priority: coinId > symbol > default
+    let coinId = nodeData.coinId as string | undefined;
+    
+    // Legacy support: convert old "Crypto.SOL/USD" format to coin ID
+    if (!coinId && nodeData.symbol) {
+      const symbolMap: Record<string, string> = {
+        "Crypto.SOL/USD": "solana",
+        "Crypto.BTC/USD": "bitcoin",
+        "Crypto.ETH/USD": "ethereum",
+      };
+      coinId = symbolMap[nodeData.symbol as string] || nodeData.symbol as string;
+    }
+    
+    // Default to solana if nothing provided
+    if (!coinId) {
+      coinId = "solana";
     }
 
-    context.logger(`pyth_price: fetching price for ${symbol}`);
-
-    // ========== STEP 2: CHECK WEB3 CONNECTION ==========
-
-    if (!context.web3?.solana) {
-      throw new Error("pyth_price: Solana connection not available");
-    }
+    context.logger(`pyth_price: fetching price for "${coinId}"`);
 
     try {
-      // ========== STEP 3: CREATE PYTH CLIENT ==========
+      // ========== STEP 2: CALL COINGECKO API ==========
+      
+      const url = `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`;
 
-      // Get Pyth program address for the network
-      const pythProgramKey = getPythProgramKeyForCluster(network as any);
+      context.logger(`pyth_price: calling ${url}`);
 
-      // Create Pyth HTTP client
-      const pythClient = new PythHttpClient(
-        context.web3.solana,
-        pythProgramKey
-      );
+      const response = await fetch(url, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      });
 
-      // ========== STEP 4: GET PRICE DATA ==========
-
-      context.logger(`pyth_price: querying oracle...`);
-
-      // Get all price data from Pyth
-      const priceData = await pythClient.getData();
-
-      // Find the specific symbol we want
-      const productData = priceData.products.find(
-        (product) => product.symbol === symbol
-      );
-
-      if (!productData) {
-        throw new Error(
-          `pyth_price: Symbol "${symbol}" not found. Available symbols: ${priceData.products
-            .map((p) => p.symbol)
-            .join(", ")}`
-        );
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
       }
 
-      // Get the price feed for this product
-      const priceAccount = priceData.productPrice.get(
-        productData.symbol as string
-      );
+      // ========== STEP 3: PARSE RESPONSE ==========
+      
+      const data = (await response.json()) as Record<string, { usd: number }>;
 
-      if (!priceAccount || !priceAccount.price || !priceAccount.confidence) {
-        throw new Error(`pyth_price: No price data available for ${symbol}`);
+      if (!data[coinId] || data[coinId]!.usd === undefined) {
+        throw new Error(`Coin ID "${coinId}" not found. Check https://api.coingecko.com/api/v3/coins/list for valid IDs`);
       }
 
-      // ========== STEP 5: FORMAT PRICE DATA ==========
+      const price = data[coinId]!.usd;
 
-      // Pyth prices have an exponent (10^expo)
-      // Example: price=45000, expo=-2 means actual price = 45000 * 10^-2 = 450.00
-      const price = Number(priceAccount.price);
-      const confidence = Number(priceAccount.confidence);
-      const expo = priceAccount.exponent;
+      context.logger(`pyth_price: ${coinId} = $${price.toFixed(2)}`);
 
-      // Calculate actual price with exponent
-      const actualPrice = price * Math.pow(10, expo);
-      const actualConfidence = confidence * Math.pow(10, expo);
-
-      const result = {
-        symbol: symbol,
-        price: actualPrice,
-        confidence: actualConfidence,
-        expo: expo,
+      // ========== STEP 4: RETURN RESULT ==========
+      
+      return {
+        coinId: coinId,
+        symbol: coinId.toUpperCase(), // For backward compatibility
+        price: parseFloat(price.toFixed(2)),
         timestamp: new Date(),
-        network: network,
       };
 
-      context.logger(
-        `pyth_price: ${symbol} = $${actualPrice.toFixed(
-          2
-        )} ±${actualConfidence.toFixed(2)}`
-      );
-
-      return result;
     } catch (error: any) {
-      // ========== STEP 6: ERROR HANDLING ==========
-
-      context.logger(`pyth_price: error - ${error.message}`);
-
+      context.logger(`pyth_price: ERROR - ${error.message}`);
+      
       return {
-        symbol: symbol,
+        coinId: coinId,
+        symbol: coinId.toUpperCase(),
         price: 0,
         error: error.message,
         timestamp: new Date(),
       };
     }
-  }
+  },
 };

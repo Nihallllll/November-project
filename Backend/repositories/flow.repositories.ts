@@ -4,13 +4,14 @@ import type{ FlowJson } from "../types/flow.types";
 export class FlowRepository {
   
   // Create a new flow
-  static async create(name: string, flowJson: FlowJson, ownerId: string) {
+  static async create(name: string, flowJson: FlowJson, ownerId: string , schedule : string) {
     return await prisma.flow.create({
       data: {
         name: name,
         json: flowJson as any,
         ownerId: ownerId,
-        status: "active"  // Default status
+        status: "active"  ,// Default status
+        schedule : schedule || null
       }
     });
   }

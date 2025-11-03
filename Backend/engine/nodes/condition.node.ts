@@ -20,7 +20,7 @@ export const conditionNode: NodeHandler = {
       return {
         passed,
         expression,
-        input  // Pass input through
+        ...input  // Pass input through
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

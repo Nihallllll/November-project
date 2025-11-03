@@ -19,7 +19,7 @@ model User {
   credentials Credential[]
 }
 
-model Credential {
+model Credential { //(❁´◡`❁) have to update the credentials as per the node 
   id          String   @id @default(uuid())
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)

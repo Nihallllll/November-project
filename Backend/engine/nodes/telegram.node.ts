@@ -1,29 +1,27 @@
 import type { NodeHandler } from "./node-handler.interface";
-import TelegramBot from "node-telegram-bot-api";
 
 /**
- * TELEGRAM NODE (Simple .env Version)
+ * TELEGRAM NODE (Fetch-based, no dependencies)
  * 
- * Sends messages via Telegram Bot
+ * Sends messages via Telegram Bot API
+ * Uses simple HTTP requests instead of node-telegram-bot-api
  * 
  * Configuration (nodeData):
- * - message: string (required) - Message text to send
- * - chatId?: string (optional) - Override default chat ID from .env
- * - parseMode?: string (optional) - 'Markdown', 'HTML', or undefined
+ * - message: string (required) - Message text with templates
  * 
  * Template Variables:
  * - Use {{input.fieldName}} to insert values from previous node
  * - Example: "Balance is {{input.balance}} SOL"
+ * - Example: "Price is ${{input.price}}"
  * 
- * Input:
- * - Previous node output (used for template replacement)
+ * Environment Variables:
+ * - TELEGRAM_BOT_TOKEN: Your Telegram bot token
+ * - TELEGRAM_CHAT_ID: Your chat ID
  * 
  * Output:
  * {
  *   sent: boolean,
- *   messageId: number,
- *   chatId: string,
- *   text: string,
+ *   text: string (final message sent),
  *   timestamp: Date
  * }
  */
@@ -32,89 +30,79 @@ export const telegramNode: NodeHandler = {
   type: "telegram",
   
   execute: async (nodeData, input, context) => {
-    // ========== STEP 1: VALIDATE INPUT ==========
-    
-    const { message, chatId, parseMode } = nodeData;
-    
-    if (!message) {
-      throw new Error("telegram: 'message' field is required");
-    }
-    
-    context.logger(`telegram: preparing to send message`);
-    
+    const { message: templateMessage } = nodeData;
+
+    context.logger(`telegram: preparing message`);
+
     try {
-      // ========== STEP 2: LOAD CONFIG FROM .ENV ==========
-      
+      // ========== STEP 1: VALIDATE INPUT ==========
+      if (!templateMessage) {
+        throw new Error("telegram: 'message' field is required");
+      }
+
+      // ========== STEP 2: LOAD ENV VARIABLES ==========
       const botToken = process.env.TELEGRAM_BOT_TOKEN;
-      const defaultChatId = process.env.TELEGRAM_CHAT_ID;
-      
-      if (!botToken) {
-        throw new Error("telegram: TELEGRAM_BOT_TOKEN must be set in .env");
+      const chatId = process.env.TELEGRAM_CHAT_ID;
+
+      if (!botToken || !chatId) {
+        throw new Error("telegram: Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID in .env");
       }
-      
-      if (!defaultChatId && !chatId) {
-        throw new Error("telegram: TELEGRAM_CHAT_ID must be set in .env or provided in nodeData");
-      }
-      
-      const targetChatId = chatId || defaultChatId!;
-      
+
       // ========== STEP 3: TEMPLATE REPLACEMENT ==========
-      
-      let processedMessage = message;
-      
-      if (input) {
-        const replaceTemplates = (text: string) => {
-          return text.replace(/\{\{input\.(\w+)\}\}/g, (match, key) => {
-            return input[key] !== undefined ? String(input[key]) : match;
-          });
-        };
-        
-        processedMessage = replaceTemplates(message);
+      let finalMessage = templateMessage;
+
+      if (input && typeof input === "object") {
+        // Replace {{input.fieldName}} with actual values
+        finalMessage = templateMessage.replace(/\{\{input\.(\w+)\}\}/g, (match :any,  key : any) => {
+          const value = (input as Record<string, any>)[key];
+          if (value !== undefined && value !== null) {
+            return String(value);
+          }
+          return match;
+        });
       }
-      
-      // ========== STEP 4: CREATE BOT INSTANCE ==========
-      
-      // Create bot without polling (we're just sending messages)
-      const bot = new TelegramBot(botToken, { polling: false });
-      
-      // ========== STEP 5: PREPARE MESSAGE OPTIONS ==========
-      
-      const options: any = {};
-      
-      if (parseMode === 'Markdown' || parseMode === 'HTML') {
-        options.parse_mode = parseMode;
+
+      context.logger(`telegram: final message = "${finalMessage}"`);
+
+      // ========== STEP 4: SEND VIA TELEGRAM API ==========
+      const telegramUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
+
+      const response = await fetch(telegramUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: finalMessage,
+          parse_mode: "HTML", // Optional: supports HTML formatting
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Telegram API HTTP ${response.status}`);
       }
-      
-      // ========== STEP 6: SEND MESSAGE ==========
-      
-      context.logger(`telegram: sending message to chat ${targetChatId}`);
-      
-      const sentMessage = await bot.sendMessage(targetChatId, processedMessage, options);
-      
-      context.logger(`telegram: sent successfully! Message ID: ${sentMessage.message_id}`);
-      
-      // ========== STEP 7: RETURN RESULT ==========
-      
+
+      const result = (await response.json()) as { ok: boolean; description?: string };
+
+      if (!result.ok) {
+        throw new Error(`Telegram API error: ${result.description || "Unknown"}`);
+      }
+
+      context.logger(`telegram: message sent successfully! ✅`);
+
       return {
         sent: true,
-        messageId: sentMessage.message_id,
-        chatId: targetChatId,
-        text: processedMessage,
+        text: finalMessage,
         timestamp: new Date(),
-        input: input // Pass through input to next node
       };
-      
+
     } catch (error: any) {
-      // ========== ERROR HANDLING ==========
-      
-      context.logger(`telegram: failed - ${error.message}`);
-      
+      context.logger(`telegram: ERROR - ${error.message}`);
+
       return {
         sent: false,
         error: error.message,
-        message: message,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
     }
-  }
+  },
 };

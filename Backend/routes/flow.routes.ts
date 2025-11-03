@@ -23,6 +23,8 @@ router.delete("/flows/:id", FlowController.deleteFlow);
 // Manually trigger flow execution
 router.post("/flows/:id/run", FlowController.runFlow);
 
+//trigger without input
+router.post("/flows/:flowId/trigger", (req, res) => FlowController.triggerFlow(req, res));
 // ========== RUN ROUTES ==========
 
 // Get run details
