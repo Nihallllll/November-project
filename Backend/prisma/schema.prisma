@@ -7,12 +7,51 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id          String       @id @default(uuid())
+  email       String       @unique
+  name        String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  // Relations
+  flows       Flow[]
+  credentials Credential[]
+}
+
+model Credential {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Credential details
+  name        String   // e.g., "My Gmail Account", "SendGrid Production"
+  type        String   // e.g., "email_smtp", "telegram_bot", "twilio"
+  
+  // Encrypted credential data
+  data        Json     // Encrypted: { user, password, host, port }
+  
+  // Metadata
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([userId, name])
+  @@index([userId, type])
+}
+
 model Flow {
   id        String   @id @default(uuid())
   name      String
   ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id]) 
   json      Json
   status    FlowStatus @default(active)
+
+  schedule  String?  // Cron expression or interval (e.g., "*/5 * * * *" or "5m")
+  lastRunAt DateTime?  // When was it last executed
+  nextRunAt DateTime?  // When should it run next
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   runs      Run[]

@@ -5,6 +5,8 @@ import { delayNode } from "./nodes/delay.node";
 import { logNode } from "./nodes/log.nodes";
 import { walletBalanceNode } from "./nodes/wallet-ballance.node";
 import { pythPriceNode } from "./nodes/pyth-price.node";
+import { emailNode } from "./nodes/email.node";
+import { telegramNode } from "./nodes/telegram.node";
 
 // ========== NODE REGISTRY ==========
 // This is where you register all your node types
@@ -16,7 +18,9 @@ const NODE_REGISTRY: Record<string, NodeHandler> = {
   "delay": delayNode,
   "log": logNode,
   "wallet_balance":walletBalanceNode,
-  "pyth_price": pythPriceNode
+  "pyth_price": pythPriceNode,
+  "email": emailNode,
+  "telegram": telegramNode,
 };
 
 // ========== LOOKUP FUNCTION ==========

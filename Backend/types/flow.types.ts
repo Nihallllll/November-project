@@ -72,6 +72,8 @@ export interface ExecutionContext {
   web3?: {
     solana : Connection
   }
+  getCredential?: (credentialId: string) => Promise<any>;
+  decryptCredential?: (encryptedData: any) => any;
 }
 
 // ========== API REQUEST/RESPONSE TYPES ==========
@@ -83,4 +85,12 @@ export interface CreateFlowRequest {
 
 export interface TriggerFlowRequest {
   input?: any;
+}
+
+export interface FlowTrigger {
+  type: 'manual' | 'schedule' | 'webhook';  // ← Add 'schedule'
+  config: {
+    schedule?: string;  // ← NEW: Cron or interval
+    [key: string]: any;
+  };
 }

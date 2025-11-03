@@ -5,7 +5,9 @@
   "private": true,
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/ioredis": "^4.28.10"
+    "@types/ioredis": "^4.28.10",
+    "@types/node-cron": "^3.0.11",
+    "@types/node-telegram-bot-api": "^0.64.12"
   },
   "peerDependencies": {
     "typescript": "^5"
@@ -16,11 +18,15 @@
     "@solana/web3.js": "^1.98.4",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
+    "@types/nodemailer": "^7.0.3",
     "bullmq": "^5.63.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "ioredis": "^5.8.2",
+    "node-cron": "^4.2.1",
+    "node-telegram-bot-api": "^0.66.0",
+    "nodemailer": "^7.0.10",
     "prisma": "^6.18.0",
     "redis": "^5.9.0",
     "zod": "^4.1.12"
