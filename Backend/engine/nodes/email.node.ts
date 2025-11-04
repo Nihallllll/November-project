@@ -1,12 +1,13 @@
+import prisma from "../../config/database";
 import type { NodeHandler } from "./node-handler.interface";
 import nodemailer from "nodemailer";
 
+
 /**
- * EMAIL NODE (Simple .env Version)
- * 
- * Sends emails using SMTP credentials from .env
+ * EMAIL NODE (Database Credentials Version)
  * 
  * Configuration (nodeData):
+ * - credentialId: string (required) - ID of stored email credential
  * - to: string (required) - Recipient email(s), comma-separated
  * - subject: string (required) - Email subject
  * - body: string (required) - Email body
@@ -15,9 +16,6 @@ import nodemailer from "nodemailer";
  * Template Variables:
  * - Use {{input.fieldName}} to insert values from previous node
  * - Example: "Balance is {{input.balance}} SOL"
- * 
- * Input:
- * - Previous node output (used for template replacement)
  * 
  * Output:
  * {
@@ -34,107 +32,104 @@ export const emailNode: NodeHandler = {
   
   execute: async (nodeData, input, context) => {
     // ========== STEP 1: VALIDATE INPUT ==========
-    
-    const { to, subject, body, html = false } = nodeData;
-    
-    if (!to) {
-      throw new Error("email: 'to' field is required");
+    const { credentialId, to, subject, body, html = false, userId } = nodeData;
+
+    if (!credentialId) {
+      throw new Error("credentialId is required in node data");
     }
-    
-    if (!subject) {
-      throw new Error("email: 'subject' field is required");
+
+    if (!to || !subject || !body) {
+      throw new Error("to, subject, and body are required in node data");
     }
-    
-    if (!body) {
-      throw new Error("email: 'body' field is required");
-    }
-    
+
     context.logger(`email: preparing to send to ${to}`);
-    
+
     try {
-      // ========== STEP 2: LOAD SMTP CONFIG FROM .ENV ==========
-      
-      const emailConfig = {
-        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.EMAIL_PORT || '587'),
-        secure: process.env.EMAIL_SECURE === 'true',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASSWORD
+      // ========== STEP 2: FETCH CREDENTIAL FROM DATABASE ==========
+      const credential = await prisma.credential.findFirst({
+        where: {
+          id: credentialId,
+          type: "email",
+          userId: userId,
+          isActive: true
         }
-      };
-      
-      // Validate .env is set
-      if (!emailConfig.auth.user || !emailConfig.auth.pass) {
-        throw new Error("email: EMAIL_USER and EMAIL_PASSWORD must be set in .env");
+      });
+
+      if (!credential) {
+        throw new Error(`Email credential not found: ${credentialId}`);
       }
-      
+
+      // Parse credential data
+      const emailCreds = typeof credential.data === 'string' 
+        ? JSON.parse(credential.data) 
+        : credential.data;
+
       // ========== STEP 3: TEMPLATE REPLACEMENT ==========
-      
-      // Replace {{input.field}} with actual values
       let processedBody = body;
       let processedSubject = subject;
-      
-      if (input) {
+
+      if (input && typeof input === "object") {
         const replaceTemplates = (text: string) => {
           return text.replace(/\{\{input\.(\w+)\}\}/g, (match, key) => {
-            return input[key] !== undefined ? String(input[key]) : match;
+            const value = (input as Record<string, any>)[key];
+            return value !== undefined ? String(value) : match;
           });
         };
-        
+
         processedBody = replaceTemplates(body);
         processedSubject = replaceTemplates(subject);
       }
-      
+
       // ========== STEP 4: CREATE TRANSPORTER ==========
-      
-      const transporter = nodemailer.createTransport(emailConfig);
-      
+      const transporter = nodemailer.createTransport({
+        host: emailCreds.host,
+        port: emailCreds.port,
+        secure: emailCreds.secure,
+        auth: {
+          user: emailCreds.user,
+          pass: emailCreds.password
+        }
+      });
+
       // ========== STEP 5: PREPARE EMAIL ==========
-      
       const mailOptions: any = {
-        from: process.env.EMAIL_FROM || emailConfig.auth.user,
+        from: emailCreds.from || emailCreds.user,
         to: to,
-        subject: processedSubject,
+        subject: processedSubject
       };
-      
-      // Set body as HTML or plain text
+
       if (html) {
         mailOptions.html = processedBody;
       } else {
         mailOptions.text = processedBody;
       }
-      
+
       // ========== STEP 6: SEND EMAIL ==========
-      
-      context.logger(`email: sending to ${to} with subject "${processedSubject}"`);
-      
+      context.logger(`email: sending from ${emailCreds.user} to ${to}`);
+
       const info = await transporter.sendMail(mailOptions);
-      
-      context.logger(`email: sent successfully! Message ID: ${info.messageId}`);
-      
+
+      context.logger(`email: ✅ sent! Message ID: ${info.messageId}`);
+
       // ========== STEP 7: RETURN RESULT ==========
-      
       return {
         sent: true,
         messageId: info.messageId,
         to: to,
         subject: processedSubject,
-        from: mailOptions.from,
+        from: emailCreds.user,
+        credentialName: credential.name,
         timestamp: new Date(),
-        input: input // Pass through input to next node
+        input: input
       };
-      
+
     } catch (error: any) {
-      // ========== ERROR HANDLING ==========
-      
-      context.logger(`email: failed - ${error.message}`);
-      
+      context.logger(`email: ❌ ERROR - ${error.message}`);
+
       return {
         sent: false,
         error: error.message,
         to: to,
-        subject: subject,
         timestamp: new Date()
       };
     }
