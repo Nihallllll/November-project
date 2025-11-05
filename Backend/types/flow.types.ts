@@ -1,4 +1,4 @@
-import type { Connection } from "@solana/web3.js";
+import type { Connection as SolanaConnection } from "@solana/web3.js";
 
 
 
@@ -70,7 +70,7 @@ export interface ExecutionContext {
   logger: (message: string) => void;
   saveNodeOutput: (nodeId: string, output: any) => Promise<void>;
   web3?: {
-    solana : Connection
+    solana : SolanaConnection
   }
   getCredential?: (credentialId: string) => Promise<any>;
   decryptCredential?: (encryptedData: any) => any;

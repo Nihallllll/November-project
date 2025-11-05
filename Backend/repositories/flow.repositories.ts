@@ -9,8 +9,8 @@ export class FlowRepository {
       data: {
         name: name,
         json: flowJson as any,
-        ownerId: ownerId,
-        status: "active"  ,// Default status
+        userId: ownerId,
+        status: "ACTIVE"  ,// Default status
         schedule : schedule || null
       }
     });
@@ -28,9 +28,9 @@ export class FlowRepository {
   }
 
   // Find all flows for an owner
-  static async findByOwner(ownerId: string) {
+  static async findByOwner(userId: string) {
     return await prisma.flow.findMany({
-      where: { ownerId},
+      where: { userId},
 
       orderBy: { createdAt: 'desc' },
       include : {
@@ -53,7 +53,7 @@ export class FlowRepository {
     })
   }
 
-   static async updateStatus(id: string, status: 'active' | 'inactive' | 'draft') {
+   static async updateStatus(id: string, status: 'ACTIVE' | 'INACTIVE' | 'DRAFT') {
     return await prisma.flow.update({
       where: { id },
       data: { status }

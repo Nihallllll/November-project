@@ -1,11 +1,12 @@
 import prisma from "../config/database";
 
 export class RunRepositories {
-    static async create(flowId : string , input?: any){
+    static async create(flowId : string, userId: string, input?: any){
        return await prisma.run.create({
             data :{
                 flowId ,
-                status : "queued",
+                userId,
+                status : "QUEUED",
                 input : input || {}
             }
         })
@@ -34,7 +35,7 @@ export class RunRepositories {
   // Update run status
   static async updateStatus(
     id: string, 
-    status: 'running' | 'completed' | 'failed' | 'cancelled',
+    status: 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED',
     output?: any,
     error?: string
   ) {
@@ -44,7 +45,7 @@ export class RunRepositories {
         status,
         output: output || undefined,
         error: error || undefined,
-        finishedAt: ['completed', 'failed', 'cancelled'].includes(status) 
+        finishedAt: ['COMPLETED', 'FAILED', 'CANCELLED'].includes(status) 
           ? new Date() 
           : undefined
       }

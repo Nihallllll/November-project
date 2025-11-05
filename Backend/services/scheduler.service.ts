@@ -65,7 +65,7 @@ export class SchedulerService {
       // Get all active flows that have a schedule
       const scheduledFlows = await prisma.flow.findMany({
         where: {
-          status: 'active',
+          status: 'ACTIVE',
           schedule: {
             not: null  // Only flows with a schedule
           }
@@ -93,13 +93,14 @@ export class SchedulerService {
             const run = await prisma.run.create({
               data: {
                 flowId: flow.id,
-                status: 'queued',
+                userId : flow.userId,
+                status: 'QUEUED',
                 input: {}  // Scheduled flows have no input
               }
             });
             
             // Enqueue the job with the run ID
-            await enqueueFlowExecution(run.id, {});
+            await enqueueFlowExecution(run.id,{},flow.userId);
             
             // ========== STEP 4: UPDATE TIMESTAMPS ==========
             

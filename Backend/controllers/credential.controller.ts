@@ -1,11 +1,13 @@
 import type { Request, Response } from "express";
 import prisma from "../config/database";
+import { CredentialService } from "../services/credentail.service";
+
 
 export class CredentialController {
   
   /**
    * POST /users/:userId/credentials
-   * Save new credential for user
+   * Save new credential (will be encrypted)
    */
   static async create(req: Request, res: Response) {
     try {
@@ -13,31 +15,22 @@ export class CredentialController {
       const { name, type, data } = req.body;
 
       // ========== VALIDATION ==========
-      if(!userId){
-        return res.json({
-            message : "userId not found"
-        })
-      }
-      if (!name || !type || !data ) {
+      if (!name || !type || !data) {
         return res.status(400).json({
           success: false,
           error: "name, type, and data are required"
         });
       }
 
-      // ========== SAVE TO DATABASE ==========
-      // TODO: Add encryption before saving 'data'
-      const credential = await prisma.credential.create({
-        data: {
-          userId,
-          name,
-          type,
-          data: data, // Stored as JSON
-          isActive: true
-        }
-      });
+      // ========== CREATE WITH ENCRYPTION ==========
+      const credential = await CredentialService.createCredential(
+        userId!,
+        name,
+        type,
+        data
+      );
 
-      console.log(`✅ Credential created: ${credential.id} (${credential.type})`);
+      console.log(`✅ Credential created & encrypted: ${credential.id} (${credential.type})`);
 
       res.status(201).json({
         success: true,
@@ -48,13 +41,12 @@ export class CredentialController {
           isActive: credential.isActive,
           createdAt: credential.createdAt
         },
-        message: "Credential saved successfully"
+        message: "Credential saved and encrypted successfully"
       });
 
     } catch (error: any) {
       console.error("Error creating credential:", error);
       
-      // Handle unique constraint violation
       if (error.code === 'P2002') {
         return res.status(409).json({
           success: false,
@@ -71,7 +63,7 @@ export class CredentialController {
 
   /**
    * GET /users/:userId/credentials
-   * List all credentials for user (without sensitive data)
+   * List all credentials (don't show encrypted data)
    */
   static async list(req: Request, res: Response) {
     try {
@@ -80,7 +72,7 @@ export class CredentialController {
       const credentials = await prisma.credential.findMany({
         where: { 
           userId,
-          isActive: true  // Only show active credentials
+          isActive: true
         },
         select: {
           id: true,
@@ -88,8 +80,7 @@ export class CredentialController {
           type: true,
           isActive: true,
           createdAt: true,
-          updatedAt: true,
-          // Don't return 'data' field for security
+          updatedAt: true
         },
         orderBy: { createdAt: 'desc' }
       });
@@ -111,97 +102,27 @@ export class CredentialController {
 
   /**
    * GET /users/:userId/credentials/:id
-   * Get one credential details (without sensitive data)
+   * Get one credential details
    */
   static async getOne(req: Request, res: Response) {
     try {
       const { userId, id } = req.params;
 
-      const credential = await prisma.credential.findFirst({
-        where: { 
-          id, 
-          userId 
-        },
-        select: {
-          id: true,
-          name: true,
-          type: true,
-          isActive: true,
-          createdAt: true,
-          updatedAt: true,
-          // Don't return 'data' for security
-        }
-      });
-
-      if (!credential) {
-        return res.status(404).json({
-          success: false,
-          error: "Credential not found"
-        });
-      }
+      const credential = await CredentialService.getCredential(id!, userId!);
 
       res.json({
         success: true,
-        data: credential
+        data: {
+          id: credential.id,
+          name: credential.name,
+          type: credential.type,
+          isActive: credential.isActive,
+          createdAt: credential.createdAt
+        }
       });
 
     } catch (error: any) {
       console.error("Error getting credential:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
-    }
-  }
-
-  /**
-   * PUT /users/:userId/credentials/:id
-   * Update credential
-   */
-  static async update(req: Request, res: Response) {
-    try {
-      const { userId, id } = req.params;
-      const { name, data, isActive } = req.body;
-
-      // Check if credential exists and belongs to user
-      const existing = await prisma.credential.findFirst({
-        where: { id, userId }
-      });
-
-      if (!existing) {
-        return res.status(404).json({
-          success: false,
-          error: "Credential not found"
-        });
-      }
-
-      // Update credential
-      const updated = await prisma.credential.update({
-        where: { id },
-        data: {
-          ...(name && { name }),
-          ...(data && { data }),
-          ...(isActive !== undefined && { isActive }),
-          updatedAt: new Date()
-        }
-      });
-
-      console.log(`✅ Credential updated: ${id}`);
-
-      res.json({
-        success: true,
-        data: {
-          id: updated.id,
-          name: updated.name,
-          type: updated.type,
-          isActive: updated.isActive,
-          updatedAt: updated.updatedAt
-        },
-        message: "Credential updated successfully"
-      });
-
-    } catch (error: any) {
-      console.error("Error updating credential:", error);
       res.status(500).json({
         success: false,
         error: error.message
@@ -217,19 +138,9 @@ export class CredentialController {
     try {
       const { userId, id } = req.params;
 
-      // Verify credential belongs to user before deleting
-      const credential = await prisma.credential.findFirst({
-        where: { id, userId }
-      });
+      // Verify credential exists
+      await CredentialService.getCredential(id!, userId!);
 
-      if (!credential) {
-        return res.status(404).json({
-          success: false,
-          error: "Credential not found"
-        });
-      }
-
-      // Delete credential
       await prisma.credential.delete({
         where: { id }
       });

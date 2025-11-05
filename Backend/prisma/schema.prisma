@@ -7,89 +7,148 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ========== ENUMS ==========
+
+enum FlowStatus {
+  ACTIVE      // ✅ UPPERCASE
+  INACTIVE
+  DRAFT
+}
+
+enum RunStatus {
+  QUEUED      // ✅ UPPERCASE (starts here)
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model ExecutionLog {
+  id            String   @id @default(cuid())
+  runId         String
+  run           Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  nodeId        String
+  level         String   // INFO, ERROR, WARN, DEBUG
+  message       String
+  metadata      String?  // JSON stringified
+  timestamp     DateTime @default(now())
+
+  @@index([runId])
+  @@index([timestamp])
+  @@index([level])
+}
+// ========== MODELS ==========
+
 model User {
-  id          String       @id @default(uuid())
-  email       String       @unique
-  name        String?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  password  String   // ✅ Hashed password
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   
   // Relations
   flows       Flow[]
   credentials Credential[]
+  runs        Run[]        // ✅ User's execution runs
 }
 
-model Credential { //(❁´◡`❁) have to update the credentials as per the node 
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+model Credential {
+  id       String   @id @default(uuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   // Credential details
-  name        String   // e.g., "My Gmail Account", "SendGrid Production"
-  type        String   // e.g., "email_smtp", "telegram_bot", "twilio"
+  name     String   // e.g., "My Gmail Account"
+  type     String   // e.g., "email_smtp", "telegram_bot"
   
   // Encrypted credential data
-  data        Json     // Encrypted: { user, password, host, port }
+  data     Json     // Encrypted: { user, password, host, port }
   
   // Metadata
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isActive Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   
-  @@unique([userId, name])
-  @@index([userId, type])
+  // Relations
+  flows Flow[]
+  
+  // ✅ Constraints & Indexes
+  @@unique([userId, name])      // One user can't have duplicate credential names
+  @@index([userId, type])       // Fast lookup by user & type
 }
 
 model Flow {
-  id        String   @id @default(uuid())
-  name      String
-  ownerId   String
-  owner     User     @relation(fields: [ownerId], references: [id]) 
-  json      Json
-  status    FlowStatus @default(active)
-
-  schedule  String?  // Cron expression or interval (e.g., "*/5 * * * *" or "5m")
+  id       String     @id @default(uuid())
+  name     String
+  userId   String
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)  // ✅ Added onDelete
+  
+  // Flow configuration
+  json     Json
+  status   FlowStatus @default(ACTIVE)  // ✅ UPPERCASE enum value
+  
+  // Scheduling
+  schedule  String?    // Cron expression or interval (e.g., "*/5 * * * *" or "5m")
   lastRunAt DateTime?  // When was it last executed
   nextRunAt DateTime?  // When should it run next
-
+  
+  // Metadata
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  runs      Run[]
+  
+  // Relations
+  runs        Run[]
+  credentials Credential[]
+  
+  // ✅ Indexes
+  @@index([userId])          // Fast lookup by user
+  @@index([status])          // Fast lookup by status
+  @@index([nextRunAt])       // Fast scheduling queries
 }
 
 model Run {
-  id         String     @id @default(uuid())
-  flowId     String
-  flow       Flow       @relation(fields: [flowId], references: [id], onDelete: Cascade)
-  status     RunStatus  @default(running)
-  input      Json?
-  output     Json?
-  error      String?
+  id       String    @id @default(uuid())
+  flowId   String
+  flow     Flow      @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  userId   String    // ✅ Who triggered this run
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Execution details
+  status   RunStatus @default(QUEUED)  // ✅ Starts as QUEUED (not running)
+  input    Json?
+  output   Json?
+  error    String?
+  
+  // Timing
   createdAt  DateTime   @default(now())
-  finishedAt DateTime?
+  startedAt  DateTime?  // ✅ ADDED: When execution started
+  finishedAt DateTime?  // When execution finished
+  updatedAt  DateTime   @updatedAt  // ✅ ADDED: Track changes
+  
+  // Relations
   nodeOutputs NodeOutput[]
+
+  logs ExecutionLog[]
+  
+  // ✅ Indexes
+  @@index([userId])      // Query user's runs
+  @@index([flowId])      // Query flow's runs
+  @@index([status])      // Query by status
+  @@index([createdAt])   // Sort by creation time
 }
 
 model NodeOutput {
   id        String   @id @default(uuid())
   runId     String
   run       Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
-  nodeId    String
-  output    Json
-  error     String?
+  nodeId    String   // Which node produced this output
+  output    Json     // The output data
+  error     String?  // Error if node failed
   createdAt DateTime @default(now())
-}
-
-enum FlowStatus {
-  active
-  inactive
-  draft
-}
-
-enum RunStatus {
-  queued
-  running
-  completed
-  failed
-  cancelled
+  
+  // ✅ Indexes
+  @@index([runId])       // Query outputs for a run
+  @@index([runId, nodeId])  // Query specific node output
 }

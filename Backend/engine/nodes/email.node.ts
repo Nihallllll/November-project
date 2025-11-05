@@ -1,70 +1,36 @@
-import prisma from "../../config/database";
+import { CredentialService } from "../../services/credentail.service";
 import type { NodeHandler } from "./node-handler.interface";
 import nodemailer from "nodemailer";
 
 
 /**
- * EMAIL NODE (Database Credentials Version)
- * 
- * Configuration (nodeData):
- * - credentialId: string (required) - ID of stored email credential
- * - to: string (required) - Recipient email(s), comma-separated
- * - subject: string (required) - Email subject
- * - body: string (required) - Email body
- * - html?: boolean (optional) - Is body HTML? Default: false
- * 
- * Template Variables:
- * - Use {{input.fieldName}} to insert values from previous node
- * - Example: "Balance is {{input.balance}} SOL"
- * 
- * Output:
- * {
- *   sent: boolean,
- *   messageId: string,
- *   to: string,
- *   subject: string,
- *   timestamp: Date
- * }
+ * EMAIL NODE (With Encrypted Credentials)
  */
-
 export const emailNode: NodeHandler = {
   type: "email",
   
   execute: async (nodeData, input, context) => {
-    // ========== STEP 1: VALIDATE INPUT ==========
     const { credentialId, to, subject, body, html = false, userId } = nodeData;
 
-    if (!credentialId) {
-      throw new Error("credentialId is required in node data");
-    }
-
-    if (!to || !subject || !body) {
-      throw new Error("to, subject, and body are required in node data");
-    }
-
-    context.logger(`email: preparing to send to ${to}`);
+    context.logger(`email: fetching encrypted credential`);
 
     try {
-      // ========== STEP 2: FETCH CREDENTIAL FROM DATABASE ==========
-      const credential = await prisma.credential.findFirst({
-        where: {
-          id: credentialId,
-          type: "email",
-          userId: userId,
-          isActive: true
-        }
-      });
-
-      if (!credential) {
-        throw new Error(`Email credential not found: ${credentialId}`);
+      // ========== VALIDATE ==========
+      if (!credentialId || !userId) {
+        throw new Error("credentialId and userId required");
       }
 
-      // Parse credential data
-      const emailCreds = typeof credential.data === 'string' 
-        ? JSON.parse(credential.data) 
-        : credential.data;
+      if (!to || !subject || !body) {
+        throw new Error("to, subject, and body required");
+      }
 
-      // ========== STEP 3: TEMPLATE REPLACEMENT ==========
+      // ========== FETCH & DECRYPT CREDENTIAL ==========
+      const credential = await CredentialService.getCredential(credentialId, userId);
+      
+      // Decrypt the data
+      const emailCreds = CredentialService.decrypt(credential.data as string);
+
+      // ========== TEMPLATE REPLACEMENT ==========
       let processedBody = body;
       let processedSubject = subject;
 
@@ -80,7 +46,7 @@ export const emailNode: NodeHandler = {
         processedSubject = replaceTemplates(subject);
       }
 
-      // ========== STEP 4: CREATE TRANSPORTER ==========
+      // ========== SEND EMAIL ==========
       const transporter = nodemailer.createTransport({
         host: emailCreds.host,
         port: emailCreds.port,
@@ -91,7 +57,6 @@ export const emailNode: NodeHandler = {
         }
       });
 
-      // ========== STEP 5: PREPARE EMAIL ==========
       const mailOptions: any = {
         from: emailCreds.from || emailCreds.user,
         to: to,
@@ -104,14 +69,12 @@ export const emailNode: NodeHandler = {
         mailOptions.text = processedBody;
       }
 
-      // ========== STEP 6: SEND EMAIL ==========
-      context.logger(`email: sending from ${emailCreds.user} to ${to}`);
+      context.logger(`email: sending with encrypted credential`);
 
       const info = await transporter.sendMail(mailOptions);
 
       context.logger(`email: ✅ sent! Message ID: ${info.messageId}`);
 
-      // ========== STEP 7: RETURN RESULT ==========
       return {
         sent: true,
         messageId: info.messageId,

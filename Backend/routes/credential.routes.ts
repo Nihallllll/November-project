@@ -13,7 +13,7 @@ credentailRouter.get("/users/:userId/credentials", CredentialController.list);
 credentailRouter.get("/users/:userId/credentials/:id", CredentialController.getOne);
 
 // Update credential
-credentailRouter.put("/users/:userId/credentials/:id", CredentialController.update);
+// credentailRouter.put("/users/:userId/credentials/:id", CredentialController.update);
 // Delete credential
 credentailRouter.delete("/users/:userId/credentials/:id", CredentialController.delete);
 
