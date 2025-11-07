@@ -7,6 +7,8 @@ import { walletBalanceNode } from "./nodes/wallet-ballance.node";
 import { pythPriceNode } from "./nodes/pyth-price.node";
 import { emailNode } from "./nodes/email.node";
 import { telegramNode } from "./nodes/telegram.node";
+import { solanaRPCNode } from "./nodes/solana-rpc.node";
+import { tokenProgramNode } from "./nodes/token-program.node";
 
 // ========== NODE REGISTRY ==========
 // This is where you register all your node types
@@ -21,6 +23,8 @@ const NODE_REGISTRY: Record<string, NodeHandler> = {
   "pyth_price": pythPriceNode,
   "email": emailNode,
   "telegram": telegramNode,
+  "solana_rpc" : solanaRPCNode,
+  "token_program" : tokenProgramNode
 };
 
 // ========== LOOKUP FUNCTION ==========
