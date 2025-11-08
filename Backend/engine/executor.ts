@@ -4,7 +4,8 @@ import { RunRepositories } from "../repositories/run.repositories";
 import type { FlowJson, Node } from "../types/flow.types";
 import { getNodeHandler } from "./registry";
 
-export async function executeFlow(runId: string, userId: string) {
+export async function 
+executeFlow(runId: string, userId: string) {
   try {
     console.log(`🚀 Starting execution for run: ${runId}`);
 
@@ -56,7 +57,7 @@ async function executeNodes(flowJson: FlowJson, runId: string , userId : string)
   let previousOutput: any = null;
   // For now, execute nodes in order (we'll add connection logic later)
   for (const node of flowJson.nodes) {
-    const nodeOutput = await executeNode(node, runId, previousOutput , userId);
+    const nodeOutput = await executeNode(node, runId, userId,previousOutput );
     results.push(nodeOutput);
     previousOutput = nodeOutput;
     // Simulate work
@@ -82,6 +83,7 @@ async function executeNode(node: Node, runId: string,userId : string, input?: an
       runId,
       flowId: "unknown", // We can get this from run if needed
       userId: userId,
+      nodeId : node.id ,
       logger: (msg: string) => console.log(`    💬 ${msg}`),
       saveNodeOutput: async (nodeId: string, output: any) => {
         await RunRepositories.saveNodeOutput(runId, nodeId, output);

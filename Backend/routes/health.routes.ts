@@ -9,7 +9,7 @@ const router = Router();
 /**
  * Health check endpoint
  */
-router.get('/health', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const checks = {
       server: 'ok',

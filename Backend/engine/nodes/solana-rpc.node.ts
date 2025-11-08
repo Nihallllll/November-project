@@ -6,29 +6,29 @@ import type { NodeHandler } from './node-handler.interface';
 export const solanaRPCNode: NodeHandler = {
   type: "solana_rpc",
   
-  execute: async (config: any, context: any): Promise<any> => {
+  execute: async (nodeData ,input, context): Promise<any> => {
     try {
       // Validate
-      if (!config.action) throw new Error('action is required');
-      if (!config.rpcUrl) throw new Error('rpcUrl is required');
+      if (!nodeData.action) throw new Error('action is required');
+      if (!nodeData.rpcUrl) throw new Error('rpcUrl is required');
       
       // Create connection
-      const connection = new Connection(config.rpcUrl, 'confirmed');
+      const connection = new Connection(nodeData.rpcUrl, 'confirmed');
       
       // Execute action
       let result;
       
-      switch (config.action) {
+      switch (nodeData.action) {
         case 'getBalance':
-          if (!config.address) throw new Error('address required for getBalance');
-          const publicKey = new PublicKey(config.address);
+          if (!nodeData.address) throw new Error('address required for getBalance');
+          const publicKey = new PublicKey(nodeData.address);
           const balance = await connection.getBalance(publicKey);
           result = { balance: balance / 1e9 }; // Convert lamports to SOL
           break;
           
         case 'getAccountInfo':
-          if (!config.address) throw new Error('address required for getAccountInfo');
-          const pubKey = new PublicKey(config.address);
+          if (!nodeData.address) throw new Error('address required for getAccountInfo');
+          const pubKey = new PublicKey(nodeData.address);
           const accountInfo = await connection.getAccountInfo(pubKey);
           result = {
             owner: accountInfo?.owner.toBase58(),
@@ -38,20 +38,20 @@ export const solanaRPCNode: NodeHandler = {
           break;
           
         case 'getTransaction':
-          if (!config.signature) throw new Error('signature required for getTransaction');
-          result = await connection.getTransaction(config.signature);
+          if (!nodeData.signature) throw new Error('signature required for getTransaction');
+          result = await connection.getTransaction(nodeData.signature);
           break;
           
         case 'getSignaturesForAddress':
-          if (!config.address) throw new Error('address required for getSignaturesForAddress');
-          const pk = new PublicKey(config.address);
+          if (!nodeData.address) throw new Error('address required for getSignaturesForAddress');
+          const pk = new PublicKey(nodeData.address);
           result = await connection.getSignaturesForAddress(pk, {
-            limit: config.limit || 10
+            limit: nodeData.limit || 10
           });
           break;
           
         default:
-          throw new Error(`Unknown action: ${config.action}`);
+          throw new Error(`Unknown action: ${nodeData.action}`);
       }
       
       return {

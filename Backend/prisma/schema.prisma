@@ -152,3 +152,61 @@ model NodeOutput {
   @@index([runId])       // Query outputs for a run
   @@index([runId, nodeId])  // Query specific node output
 }
+
+// schema.prisma
+
+model PendingTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  flowRunId String
+  
+  // Transaction details
+  type      String   // 'jupiter_swap', 'token_transfer', etc.
+  serializedTransaction String @db.Text // Base64 encoded transaction
+  
+  // Quote/Details (for display)
+  transactionDetails Json // { inputToken, outputToken, amount, quote, etc. }
+  
+  // Status
+  status    String   @default("pending") // pending, approved, rejected, expired
+  
+  // Approval
+  approvedAt    DateTime?
+  rejectedAt    DateTime?
+  signature     String?     // Final transaction signature after approval
+  
+  // Security
+  expiresAt     DateTime    // Expire after 15 minutes
+  approvalToken String @unique @default(cuid()) // Secure token for approval link
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([approvalToken])
+  @@index([status])
+}
+
+
+model WalletWatch {
+  id                String   @id @default(cuid())
+  flowId            String
+  nodeId            String
+  walletAddress     String
+  watchType         String   // "balance" | "token_balance" | "transaction"
+  
+  // State data
+  lastBalance       BigInt?
+  lastTokenBalance  BigInt?
+  lastSignature     String?
+  tokenMint         String?
+  lastCheckedAt     DateTime @default(now())
+  
+  // Metadata
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@unique([flowId, nodeId, walletAddress])
+  @@index([flowId])
+  @@index([walletAddress])
+}

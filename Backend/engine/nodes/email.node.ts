@@ -2,13 +2,12 @@ import { CredentialService } from "../../services/credentail.service";
 import type { NodeHandler } from "./node-handler.interface";
 import nodemailer from "nodemailer";
 
-
 /**
  * EMAIL NODE (With Encrypted Credentials)
  */
 export const emailNode: NodeHandler = {
   type: "email",
-  
+
   execute: async (nodeData, input, context) => {
     const { credentialId, to, subject, body, html = false, userId } = nodeData;
 
@@ -25,8 +24,11 @@ export const emailNode: NodeHandler = {
       }
 
       // ========== FETCH & DECRYPT CREDENTIAL ==========
-      const credential = await CredentialService.getCredential(credentialId, userId);
-      
+      const credential = await CredentialService.getCredential(
+        credentialId,
+        userId
+      );
+
       // Decrypt the data
       const emailCreds = CredentialService.decrypt(credential.data as string);
 
@@ -46,6 +48,34 @@ export const emailNode: NodeHandler = {
         processedSubject = replaceTemplates(subject);
       }
 
+      if (
+        input &&
+        (input as any).requiresApproval &&
+        (input as any).approvalUrl
+      ) {
+        const quote = (input as any).quote;
+
+        // Append transaction approval section
+        const approvalSection = `
+    \n\n
+    ================================
+    TRANSACTION APPROVAL REQUIRED
+    ================================
+    
+    From: ${quote.inputAmount} tokens
+    To: ~${quote.outputAmount} tokens
+    Price Impact: ${quote.priceImpactPct}%
+    
+    ⏰ This transaction expires in 15 minutes
+    
+    👉 Approve Transaction: ${(input as any).approvalUrl}
+    
+    ================================
+  `;
+
+        processedBody += approvalSection;
+      }
+
       // ========== SEND EMAIL ==========
       const transporter = nodemailer.createTransport({
         host: emailCreds.host,
@@ -53,14 +83,14 @@ export const emailNode: NodeHandler = {
         secure: emailCreds.secure,
         auth: {
           user: emailCreds.user,
-          pass: emailCreds.password
-        }
+          pass: emailCreds.password,
+        },
       });
 
       const mailOptions: any = {
         from: emailCreds.from || emailCreds.user,
         to: to,
-        subject: processedSubject
+        subject: processedSubject,
       };
 
       if (html) {
@@ -83,9 +113,8 @@ export const emailNode: NodeHandler = {
         from: emailCreds.user,
         credentialName: credential.name,
         timestamp: new Date(),
-        input: input
+        input: input,
       };
-
     } catch (error: any) {
       context.logger(`email: ❌ ERROR - ${error.message}`);
 
@@ -93,8 +122,8 @@ export const emailNode: NodeHandler = {
         sent: false,
         error: error.message,
         to: to,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
     }
-  }
+  },
 };

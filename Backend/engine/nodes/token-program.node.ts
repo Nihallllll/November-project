@@ -10,22 +10,22 @@ import type { NodeHandler } from "./node-handler.interface";
 export const tokenProgramNode: NodeHandler = {
   type: "token_program",
 
-  execute: async (config: any, context: any): Promise<any> => {
+  execute: async (nodeData,input  ,context): Promise<any> => {
     try {
       // Validate
-      if (!config.action) throw new Error("action is required");
-      if (!config.rpcUrl) throw new Error("rpcUrl is required");
-      if (!config.tokenMint) throw new Error("tokenMint is required");
+      if (!nodeData.action) throw new Error("action is required");
+      if (!nodeData.rpcUrl) throw new Error("rpcUrl is required");
+      if (!nodeData.tokenMint) throw new Error("tokenMint is required");
 
-      const connection = new Connection(config.rpcUrl, "confirmed");
-      const mintAddress = new PublicKey(config.tokenMint);
+      const connection = new Connection(nodeData.rpcUrl, "confirmed");
+      const mintAddress = new PublicKey(nodeData.tokenMint);
 
       let result;
 
-      switch (config.action) {
+      switch (nodeData.action) {
         case "getBalance":
           // Get token balance for a wallet
-          result = await getTokenBalance(connection, mintAddress, config.owner);
+          result = await getTokenBalance(connection, mintAddress, nodeData.owner);
           break;
 
         case "getTokenAccountsByOwner":
@@ -33,28 +33,28 @@ export const tokenProgramNode: NodeHandler = {
           result = await getTokenAccounts(
             connection,
             mintAddress,
-            config.owner
+            nodeData.owner
           );
           break;
 
         case "getAccountInfo":
           // Get info about a specific token account
-          result = await getTokenAccountInfo(connection, config.tokenAccount);
+          result = await getTokenAccountInfo(connection, nodeData.tokenAccount);
           break;
 
         case "transfer":
           // Transfer tokens (this requires private key - handle carefully)
           result = await transferTokens(
             connection,
-            config.from,
-            config.to,
-            config.amount,
-            config.privateKey
+            nodeData.from,
+            nodeData.to,
+            nodeData.amount,
+            nodeData.privateKey
           );
           break;
 
         default:
-          throw new Error(`Unknown action: ${config.action}`);
+          throw new Error(`Unknown action: ${nodeData.action}`);
       }
 
       return {

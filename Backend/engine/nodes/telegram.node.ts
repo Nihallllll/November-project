@@ -1,13 +1,12 @@
 import { CredentialService } from "../../services/credentail.service";
 import type { NodeHandler } from "./node-handler.interface";
 
-
 /**
  * TELEGRAM NODE (With Encrypted Credentials)
  */
 export const telegramNode: NodeHandler = {
   type: "telegram",
-  
+
   execute: async (nodeData, input, context) => {
     const { credentialId, message: templateMessage, userId } = nodeData;
 
@@ -24,11 +23,16 @@ export const telegramNode: NodeHandler = {
       }
 
       // ========== FETCH & DECRYPT CREDENTIAL ==========
-      const credential = await CredentialService.getCredential(credentialId, userId);
-      
+      const credential = await CredentialService.getCredential(
+        credentialId,
+        userId
+      );
+
       // Decrypt the data
-      const decryptedData = CredentialService.decrypt(credential.data as string);
-      
+      const decryptedData = CredentialService.decrypt(
+        credential.data as string
+      );
+
       const { token, chatId } = decryptedData;
 
       if (!token || !chatId) {
@@ -38,15 +42,36 @@ export const telegramNode: NodeHandler = {
       // ========== TEMPLATE REPLACEMENT ==========
       let finalMessage = templateMessage;
       if (input && typeof input === "object") {
-        finalMessage = templateMessage.replace(/\{\{input\.(\w+)\}\}/g, (match: any, key : any) => {
-          const value = (input as Record<string, any>)[key];
-          return value !== undefined ? String(value) : match;
-        });
+        finalMessage = templateMessage.replace(
+          /\{\{input\.(\w+)\}\}/g,
+          (match: any, key: any) => {
+            const value = (input as Record<string, any>)[key];
+            return value !== undefined ? String(value) : match;
+          }
+        );
+      }
+     
+      //pending transaction message 
+      if (
+        input &&
+        (input as any).requiresApproval &&
+        (input as any).approvalUrl
+      ) {
+        const quote = (input as any).quote;
+
+        finalMessage += `\n\n🔔 <b>Transaction Approval Required</b>\n`;
+        finalMessage += `\nFrom: ${quote.inputAmount} tokens`;
+        finalMessage += `\nTo: ~${quote.outputAmount} tokens`;
+        finalMessage += `\nPrice Impact: ${quote.priceImpactPct}%`;
+        finalMessage += `\n\n⏰ Expires in 15 minutes`;
+        finalMessage += `\n\n👉 <a href="${
+          (input as any).approvalUrl
+        }">APPROVE TRANSACTION</a>`;
       }
 
       // ========== SEND MESSAGE ==========
       const url = `https://api.telegram.org/bot${token}/sendMessage`;
-      
+
       context.logger(`telegram: sending encrypted credential message`);
 
       const response = await fetch(url, {
@@ -55,11 +80,14 @@ export const telegramNode: NodeHandler = {
         body: JSON.stringify({
           chat_id: chatId,
           text: finalMessage,
-          parse_mode: "HTML"
-        })
+          parse_mode: "HTML",
+        }),
       });
 
-      const result = await response.json() as { ok: boolean; error_code?: number };
+      const result = (await response.json()) as {
+        ok: boolean;
+        error_code?: number;
+      };
 
       if (!result.ok) {
         throw new Error(`Telegram API error: ${result.error_code}`);
@@ -72,16 +100,15 @@ export const telegramNode: NodeHandler = {
         text: finalMessage,
         credentialName: credential.name,
         timestamp: new Date(),
-        input: input
+        input: input,
       };
-
     } catch (error: any) {
       context.logger(`telegram: ❌ ERROR - ${error.message}`);
       return {
         sent: false,
         error: error.message,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
     }
-  }
+  },
 };

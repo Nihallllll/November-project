@@ -9,6 +9,9 @@ import { emailNode } from "./nodes/email.node";
 import { telegramNode } from "./nodes/telegram.node";
 import { solanaRPCNode } from "./nodes/solana-rpc.node";
 import { tokenProgramNode } from "./nodes/token-program.node";
+import { jupiterNode } from "./nodes/jupiter.node";
+import { webhookNode } from "./nodes/webhook.node";
+import { watchWalletNode } from "./nodes/watch-wallet.node";
 
 // ========== NODE REGISTRY ==========
 // This is where you register all your node types
@@ -24,7 +27,10 @@ const NODE_REGISTRY: Record<string, NodeHandler> = {
   "email": emailNode,
   "telegram": telegramNode,
   "solana_rpc" : solanaRPCNode,
-  "token_program" : tokenProgramNode
+  "token_program" : tokenProgramNode,
+  "jupiter" : jupiterNode,
+  "webhook" : webhookNode,
+  "watch-wallet" : watchWalletNode
 };
 
 // ========== LOOKUP FUNCTION ==========
