@@ -94,3 +94,46 @@ export interface FlowTrigger {
     [key: string]: any;
   };
 }
+
+export interface PostgresDBNodeData {
+  credentialId: string;
+  mode: 'READ' | 'WRITE' | 'BOTH';
+  schema: PostgresSchema;
+  useUserDBForMemory?: boolean;  // If true, AI stores memory here
+  memoryTableName?: string;       // Table for AI memory (default: "ai_memory")
+}
+
+export interface PostgresSchema {
+  tables: PostgresTable[];
+}
+
+export interface PostgresTable {
+  name: string;
+  columns: Record<string, PostgresColumn>;
+}
+
+export interface PostgresColumn {
+  type: string;         // e.g., "varchar", "integer", "numeric", "timestamp"
+  nullable?: boolean;
+  default?: any;
+  primaryKey?: boolean;
+  unique?: boolean;
+}
+
+export interface PostgresQueryParams {
+  query: string;
+  params?: any[];
+}
+
+export interface PostgresWriteParams {
+  table: string;
+  data: Record<string, any>;
+  operation: 'INSERT' | 'UPDATE' | 'DELETE';
+  where?: Record<string, any>;  // For UPDATE/DELETE
+}
+
+export interface PostgresConnectionConfig {
+  connectionUrl: string;  // Decrypted
+  maxConnections?: number;
+  idleTimeoutMillis?: number;
+}

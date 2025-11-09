@@ -43,15 +43,24 @@ export const telegramNode: NodeHandler = {
       let finalMessage = templateMessage;
       if (input && typeof input === "object") {
         finalMessage = templateMessage.replace(
-          /\{\{input\.(\w+)\}\}/g,
-          (match: any, key: any) => {
-            const value = (input as Record<string, any>)[key];
+          /\{\{input\.([\w.]+)\}\}/g, // ← Support nested paths!
+          (match: any, path: any) => {
+            // Split "data.outAmount" into ["data", "outAmount"]
+            const keys = path.split(".");
+            let value: any = input;
+
+            // Navigate nested object
+            for (const k of keys) {
+              value = value?.[k];
+              if (value === undefined) break;
+            }
+
             return value !== undefined ? String(value) : match;
           }
         );
       }
-     
-      //pending transaction message 
+
+      //pending transaction message
       if (
         input &&
         (input as any).requiresApproval &&

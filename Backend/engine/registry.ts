@@ -12,6 +12,7 @@ import { tokenProgramNode } from "./nodes/token-program.node";
 import { jupiterNode } from "./nodes/jupiter.node";
 import { webhookNode } from "./nodes/webhook.node";
 import { watchWalletNode } from "./nodes/watch-wallet.node";
+import { postgresDBNode } from "./nodes/postgres-db.node";
 
 // ========== NODE REGISTRY ==========
 // This is where you register all your node types
@@ -30,7 +31,8 @@ const NODE_REGISTRY: Record<string, NodeHandler> = {
   "token_program" : tokenProgramNode,
   "jupiter" : jupiterNode,
   "webhook" : webhookNode,
-  "watch-wallet" : watchWalletNode
+  "watch-wallet" : watchWalletNode,
+  "postgres_db" : postgresDBNode
 };
 
 // ========== LOOKUP FUNCTION ==========

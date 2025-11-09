@@ -10,40 +10,54 @@ datasource db {
 // ========== ENUMS ==========
 
 enum FlowStatus {
-  ACTIVE      // ✅ UPPERCASE
+  ACTIVE
   INACTIVE
   DRAFT
 }
 
 enum RunStatus {
-  QUEUED      // ✅ UPPERCASE (starts here)
+  QUEUED
   RUNNING
   COMPLETED
   FAILED
   CANCELLED
 }
 
+// ========== NEW ENUMS FOR AI ==========
+
+enum DBNodeMode {
+  READ
+  WRITE
+  BOTH
+}
+
+enum LLMProvider {
+  ANTHROPIC  // Claude
+  OPENAI     // GPT
+}
+
+// ========== EXISTING MODELS (KEEP AS IS) ==========
+
 model ExecutionLog {
   id            String   @id @default(cuid())
   runId         String
   run           Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
   nodeId        String
-  level         String   // INFO, ERROR, WARN, DEBUG
+  level         String
   message       String
-  metadata      String?  // JSON stringified
+  metadata      String?
   timestamp     DateTime @default(now())
 
   @@index([runId])
   @@index([timestamp])
   @@index([level])
 }
-// ========== MODELS ==========
 
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
   name      String?
-  password  String   // ✅ Hashed password
+  password  String
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -51,7 +65,10 @@ model User {
   // Relations
   flows       Flow[]
   credentials Credential[]
-  runs        Run[]        // ✅ User's execution runs
+  runs        Run[]
+  aiNodeConfigs  AINodeConfig[]
+  postgresDBNodeConfigs PostgresDBNodeConfig[]
+  aiMemories  AIMemory[]
 }
 
 model Credential {
@@ -59,125 +76,110 @@ model Credential {
   userId   String
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  // Credential details
-  name     String   // e.g., "My Gmail Account"
-  type     String   // e.g., "email_smtp", "telegram_bot"
+  name     String
+  type     String  // ✅ NEW: supports "llm_api", "postgres_db"
+  data     Json    // Encrypted: { apiKey } OR { connectionUrl }
   
-  // Encrypted credential data
-  data     Json     // Encrypted: { user, password, host, port }
-  
-  // Metadata
   isActive Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
   // Relations
   flows Flow[]
+  aiNodeConfigs AINodeConfig[]
+  postgresDBNodeConfigs PostgresDBNodeConfig[]
   
-  // ✅ Constraints & Indexes
-  @@unique([userId, name])      // One user can't have duplicate credential names
-  @@index([userId, type])       // Fast lookup by user & type
+  @@unique([userId, name])
+  @@index([userId, type])
 }
 
 model Flow {
   id       String     @id @default(uuid())
   name     String
   userId   String
-  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)  // ✅ Added onDelete
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  // Flow configuration
   json     Json
-  status   FlowStatus @default(ACTIVE)  // ✅ UPPERCASE enum value
+  status   FlowStatus @default(ACTIVE)
   
-  // Scheduling
-  schedule  String?    // Cron expression or interval (e.g., "*/5 * * * *" or "5m")
-  lastRunAt DateTime?  // When was it last executed
-  nextRunAt DateTime?  // When should it run next
+  schedule  String?
+  lastRunAt DateTime?
+  nextRunAt DateTime?
   
-  // Metadata
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
   // Relations
   runs        Run[]
   credentials Credential[]
+  aiNodeConfigs  AINodeConfig[]
+  postgresDBNodeConfigs PostgresDBNodeConfig[]
+  aiMemories  AIMemory[]
   
-  // ✅ Indexes
-  @@index([userId])          // Fast lookup by user
-  @@index([status])          // Fast lookup by status
-  @@index([nextRunAt])       // Fast scheduling queries
+  @@index([userId])
+  @@index([status])
+  @@index([nextRunAt])
 }
 
 model Run {
   id       String    @id @default(uuid())
   flowId   String
   flow     Flow      @relation(fields: [flowId], references: [id], onDelete: Cascade)
-  userId   String    // ✅ Who triggered this run
+  userId   String
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  // Execution details
-  status   RunStatus @default(QUEUED)  // ✅ Starts as QUEUED (not running)
+  status   RunStatus @default(QUEUED)
   input    Json?
   output   Json?
   error    String?
   
-  // Timing
   createdAt  DateTime   @default(now())
-  startedAt  DateTime?  // ✅ ADDED: When execution started
-  finishedAt DateTime?  // When execution finished
-  updatedAt  DateTime   @updatedAt  // ✅ ADDED: Track changes
+  startedAt  DateTime?
+  finishedAt DateTime?
+  updatedAt  DateTime   @updatedAt
   
   // Relations
   nodeOutputs NodeOutput[]
-
   logs ExecutionLog[]
+  toolExecutionLogs ToolExecutionLog[]
+  aiMemories  AIMemory[]
   
-  // ✅ Indexes
-  @@index([userId])      // Query user's runs
-  @@index([flowId])      // Query flow's runs
-  @@index([status])      // Query by status
-  @@index([createdAt])   // Sort by creation time
+  @@index([userId])
+  @@index([flowId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model NodeOutput {
   id        String   @id @default(uuid())
   runId     String
   run       Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
-  nodeId    String   // Which node produced this output
-  output    Json     // The output data
-  error     String?  // Error if node failed
+  nodeId    String
+  output    Json
+  error     String?
   createdAt DateTime @default(now())
   
-  // ✅ Indexes
-  @@index([runId])       // Query outputs for a run
-  @@index([runId, nodeId])  // Query specific node output
+  @@index([runId])
+  @@index([runId, nodeId])
 }
-
-// schema.prisma
 
 model PendingTransaction {
   id        String   @id @default(cuid())
   userId    String
   flowRunId String
   
-  // Transaction details
-  type      String   // 'jupiter_swap', 'token_transfer', etc.
-  serializedTransaction String @db.Text // Base64 encoded transaction
+  type      String
+  serializedTransaction String @db.Text
+  transactionDetails Json
   
-  // Quote/Details (for display)
-  transactionDetails Json // { inputToken, outputToken, amount, quote, etc. }
+  status    String   @default("pending")
   
-  // Status
-  status    String   @default("pending") // pending, approved, rejected, expired
-  
-  // Approval
   approvedAt    DateTime?
   rejectedAt    DateTime?
-  signature     String?     // Final transaction signature after approval
+  signature     String?
   
-  // Security
-  expiresAt     DateTime    // Expire after 15 minutes
-  approvalToken String @unique @default(cuid()) // Secure token for approval link
+  expiresAt     DateTime
+  approvalToken String @unique @default(cuid())
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -187,26 +189,168 @@ model PendingTransaction {
   @@index([status])
 }
 
-
 model WalletWatch {
   id                String   @id @default(cuid())
   flowId            String
   nodeId            String
   walletAddress     String
-  watchType         String   // "balance" | "token_balance" | "transaction"
+  watchType         String
   
-  // State data
   lastBalance       BigInt?
   lastTokenBalance  BigInt?
   lastSignature     String?
   tokenMint         String?
   lastCheckedAt     DateTime @default(now())
   
-  // Metadata
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
   @@unique([flowId, nodeId, walletAddress])
   @@index([flowId])
   @@index([walletAddress])
+}
+
+// ========== NEW AI MODELS ==========
+
+// 1️⃣ AI Node Configuration
+model AINodeConfig {
+  id            String      @id @default(uuid())
+  
+  // Node identification
+  nodeId        String
+  flowId        String
+  flow          Flow        @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // LLM Configuration
+  provider      LLMProvider
+  credentialId  String
+  credential    Credential  @relation(fields: [credentialId], references: [id], onDelete: Restrict)
+  modelName     String      // e.g., "claude-sonnet-4", "gpt-4-turbo"
+  
+  // Prompts
+  systemPrompt  String      @db.Text
+  userGoal      String      @db.Text
+  
+  // Parameters
+  temperature   Float       @default(0.7)
+  maxTokens     Int         @default(4000)
+  maxRetries    Int         @default(3)
+  
+  // 🆕 HYBRID MEMORY CONFIG
+  useUserDBForMemory  Boolean     @default(false)  // If true, use user's DB; if false, use AIMemory fallback
+  memoryTableName     String?                      // Table name in user's DB (if useUserDBForMemory = true)
+  
+  // Metadata
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  // Relations
+  toolExecutionLogs ToolExecutionLog[]
+  aiMemories        AIMemory[]  // Fallback storage
+  
+  @@unique([flowId, nodeId])
+  @@index([userId])
+  @@index([flowId])
+}
+
+// 2️⃣ Postgres DB Node Configuration
+model PostgresDBNodeConfig {
+  id            String      @id @default(uuid())
+  
+  // Node identification
+  nodeId        String
+  flowId        String
+  flow          Flow        @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Database Connection (reference to credential)
+  credentialId  String
+  credential    Credential  @relation(fields: [credentialId], references: [id], onDelete: Restrict)
+  
+  // Mode
+  mode          DBNodeMode  @default(BOTH)
+  
+  // Schema Definition
+  schema        Json        // { tables: [ { name: "trades", columns: { id: "uuid", amount: "numeric" } } ] }
+  
+  // Metadata
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  @@unique([flowId, nodeId])
+  @@index([userId])
+  @@index([flowId])
+  @@index([mode])
+}
+
+// 3️⃣ AI Memory (FALLBACK ONLY)
+// Used ONLY when useUserDBForMemory = false
+model AIMemory {
+  id            String      @id @default(uuid())
+  
+  // Ownership
+  aiNodeId      String
+  aiNodeConfig  AINodeConfig @relation(fields: [aiNodeId], references: [id], onDelete: Cascade)
+  flowId        String
+  flow          Flow        @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Execution reference
+  runId         String
+  run           Run         @relation(fields: [runId], references: [id], onDelete: Cascade)
+  
+  // Memory data
+  data          Json
+  summary       String?
+  
+  // 🆕 TTL for auto-cleanup (24 hours)
+  expiresAt     DateTime    @default(dbgenerated("NOW() + INTERVAL '24 hours'"))
+  
+  // Metadata
+  createdAt     DateTime    @default(now())
+  
+  @@index([aiNodeId])
+  @@index([flowId])
+  @@index([userId])
+  @@index([runId])
+  @@index([createdAt])
+  @@index([expiresAt])  // For cleanup queries
+}
+
+// 4️⃣ Tool Execution Log
+model ToolExecutionLog {
+  id            String      @id @default(uuid())
+  
+  // Ownership
+  aiNodeId      String
+  aiNodeConfig  AINodeConfig @relation(fields: [aiNodeId], references: [id], onDelete: Cascade)
+  runId         String
+  run           Run         @relation(fields: [runId], references: [id], onDelete: Cascade)
+  
+  // Tool details
+  toolName      String      // e.g., "jupiter_get_quote", "postgres_query"
+  toolType      String      // e.g., "jupiter", "pyth", "postgres", "http"
+  
+  // Execution data
+  input         Json
+  output        Json?
+  error         String?     @db.Text
+  
+  // Status
+  success       Boolean     @default(false)
+  retryCount    Int         @default(0)
+  duration      Int?        // milliseconds
+  
+  // Metadata
+  timestamp     DateTime    @default(now())
+  
+  @@index([aiNodeId])
+  @@index([runId])
+  @@index([toolName])
+  @@index([success])
+  @@index([timestamp])
 }
