@@ -1,20 +1,15 @@
 import type { NodeHandler } from "./node-handler.interface";
-import { PublicKey } from '@solana/web3.js';
+import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
 
 /**
  * WALLET BALANCE NODE
  * 
- * What it does:
- * - Checks SOL balance of a Solana wallet
- * - Converts lamports to SOL (1 SOL = 1 billion lamports)
- * - Returns balance and wallet address
+ * Checks SOL balance of a Solana wallet address on mainnet or devnet.
  * 
  * Configuration (nodeData):
  * - walletAddress: string (required) - The Solana wallet address
- * - network: 'mainnet-beta' | 'devnet' (optional) - defaults to devnet
- * 
- * Input:
- * - Any data from previous node (ignored, but can be logged)
+ * - network: 'mainnet-beta' | 'devnet' | 'testnet' (optional) - defaults to 'mainnet-beta'
+ * - customRpcUrl: string (optional) - Use custom RPC endpoint instead of public
  * 
  * Output:
  * {
@@ -22,14 +17,16 @@ import { PublicKey } from '@solana/web3.js';
  *   balance: number,        // Balance in SOL
  *   lamports: number,       // Raw balance in lamports
  *   timestamp: Date,
- *   network: string
+ *   network: string,
+ *   rpcEndpoint: string
  * }
  * 
- * Example usage in flow:
+ * Example usage:
  * {
  *   "type": "wallet_balance",
  *   "data": {
- *     "walletAddress": "Fg8K7cMNpNy5K4J6J7H8F9H8G7F6D5C4B3A2Z1Y0X9"
+ *     "walletAddress": "yTQ83UxRVa95DSizfTRj6CibSLFw6nP4hwctpS485iH",
+ *     "network": "mainnet-beta"
  *   }
  * }
  */
@@ -38,28 +35,25 @@ export const walletBalanceNode: NodeHandler = {
   type: "wallet_balance",
   
   execute: async (nodeData, input, context) => {
-    // ========== STEP 1: VALIDATE INPUT ==========
+    // ========== STEP 1: VALIDATE & EXTRACT CONFIGURATION ==========
     
-    const { walletAddress, network = 'devnet' } = nodeData;
+    const { 
+      walletAddress, 
+      network = 'mainnet-beta',
+      customRpcUrl 
+    } = nodeData;
     
-    // Check if wallet address provided
+    // Validate wallet address
     if (!walletAddress) {
       throw new Error("wallet_balance: walletAddress is required");
     }
     
     context.logger(`wallet_balance: checking balance for ${walletAddress}`);
-    
-    // ========== STEP 2: CHECK WEB3 CONNECTION ==========
-    
-    if (!context.web3?.solana) {
-      throw new Error("wallet_balance: Solana connection not available");
-    }
+    context.logger(`wallet_balance: network = ${network}`);
     
     try {
-      // ========== STEP 3: CREATE PUBLIC KEY ==========    
+      // ========== STEP 2: CREATE PUBLIC KEY ==========
       
-      // Convert string address to PublicKey object
-      // This validates the address format
       let publicKey: PublicKey;
       try {
         publicKey = new PublicKey(walletAddress);
@@ -67,25 +61,56 @@ export const walletBalanceNode: NodeHandler = {
         throw new Error(`wallet_balance: Invalid wallet address format: ${walletAddress}`);
       }
       
-      // ========== STEP 4: GET BALANCE FROM BLOCKCHAIN ==========
+      // ========== STEP 3: DETERMINE RPC ENDPOINT ==========
+      
+      let rpcEndpoint: string;
+      
+      if (customRpcUrl) {
+        // Use custom RPC if provided
+        rpcEndpoint = customRpcUrl;
+        context.logger(`wallet_balance: using custom RPC: ${rpcEndpoint}`);
+      } else {
+        // Use public cluster API based on network selection
+        switch (network) {
+          case 'mainnet-beta':
+            rpcEndpoint = clusterApiUrl('mainnet-beta');
+            break;
+          case 'devnet':
+            rpcEndpoint = clusterApiUrl('devnet');
+            break;
+          case 'testnet':
+            rpcEndpoint = clusterApiUrl('testnet');
+            break;
+          default:
+            rpcEndpoint = clusterApiUrl('mainnet-beta');
+        }
+        context.logger(`wallet_balance: using ${network} RPC: ${rpcEndpoint}`);
+      }
+      
+      // ========== STEP 4: CREATE CONNECTION ==========
+      
+      const connection = new Connection(rpcEndpoint, 'confirmed');
+      
+      // ========== STEP 5: GET BALANCE FROM BLOCKCHAIN ==========
       
       context.logger(`wallet_balance: querying blockchain...`);
       
       // getBalance returns balance in lamports (smallest unit)
       // 1 SOL = 1,000,000,000 lamports
-      const lamports = await context.web3.solana.getBalance(publicKey);
+      const lamports = await connection.getBalance(publicKey);
       
       // Convert lamports to SOL (divide by 1 billion)
       const balanceInSOL = lamports / 1_000_000_000;
       
-      // ========== STEP 5: FORMAT AND RETURN RESULT ==========
+      // ========== STEP 6: FORMAT AND RETURN RESULT ==========
       
       const result = {
         walletAddress: walletAddress,
         balance: balanceInSOL,           // Human-readable SOL amount
         lamports: lamports,               // Raw lamports (for precision)
         timestamp: new Date(),
-        network: network
+        network: network,
+        rpcEndpoint: rpcEndpoint
       };
       
       context.logger(`wallet_balance: ${balanceInSOL} SOL (${lamports} lamports)`);
@@ -93,15 +118,17 @@ export const walletBalanceNode: NodeHandler = {
       return result;
       
     } catch (error: any) {
-      // ========== STEP 6: ERROR HANDLING ==========
+      // ========== STEP 7: ERROR HANDLING ==========
       
       context.logger(`wallet_balance: error - ${error.message}`);
       
       return {
         walletAddress: walletAddress,
         balance: 0,
+        lamports: 0,
         error: error.message,
-        timestamp: new Date()
+        timestamp: new Date(),
+        network: network
       };
     }
   }

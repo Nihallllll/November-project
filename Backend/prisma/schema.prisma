@@ -62,6 +62,7 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
+  heliusWebhooks  HeliusWebhook[] 
   // Relations
   flows       Flow[]
   credentials Credential[]
@@ -106,6 +107,8 @@ model Flow {
   lastRunAt DateTime?
   nextRunAt DateTime?
   
+  heliusWebhooks  HeliusWebhook[] 
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
@@ -132,6 +135,8 @@ model Run {
   input    Json?
   output   Json?
   error    String?
+  
+  heliusEvents    HeliusWebhookEvent[]
   
   createdAt  DateTime   @default(now())
   startedAt  DateTime?
@@ -352,5 +357,66 @@ model ToolExecutionLog {
   @@index([runId])
   @@index([toolName])
   @@index([success])
+  @@index([timestamp])
+}
+
+// ========== HELIUS WEBHOOK MODELS ==========
+
+model HeliusWebhook {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  flowId            String
+  flow              Flow     @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  
+  // Helius webhook details
+  heliusWebhookId   String   @unique // Helius-generated webhook ID
+  webhookURL        String   // URL where Helius sends events
+  webhookType       String   // "enhanced", "raw", or "discord"
+  transactionTypes  String[] // ["ANY", "NFT_SALE", "NFT_LISTING", etc.]
+  accountAddresses  String[] // Solana addresses to monitor
+  
+  // Credentials
+  credentialId      String   // Reference to Helius API key credential
+  
+  // Status
+  isActive          Boolean  @default(true)
+  
+  // Metadata
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  lastTriggered     DateTime?
+  
+  // Relations
+  events            HeliusWebhookEvent[]
+  
+  @@index([userId])
+  @@index([flowId])
+  @@index([heliusWebhookId])
+  @@index([isActive])
+}
+
+model HeliusWebhookEvent {
+  id          String   @id @default(uuid())
+  webhookId   String
+  webhook     HeliusWebhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  
+  // Event data from Helius
+  signature   String?  // Transaction signature
+  type        String   // Transaction type (NFT_SALE, SWAP, etc.)
+  timestamp   DateTime // When the transaction occurred
+  eventData   Json     // Full Helius event payload
+  
+  // Execution tracking
+  runId       String?
+  run         Run?     @relation(fields: [runId], references: [id])
+  processed   Boolean  @default(false)
+  error       String?  // Error message if processing failed
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([webhookId])
+  @@index([signature])
+  @@index([processed])
   @@index([timestamp])
 }

@@ -13,6 +13,8 @@ import { jupiterNode } from "./nodes/jupiter.node";
 import { webhookNode } from "./nodes/webhook.node";
 import { watchWalletNode } from "./nodes/watch-wallet.node";
 import { postgresDBNode } from "./nodes/postgres-db.node";
+import { heliusIndexerNode } from "./nodes/helius-indexer.node";
+import { aiNode } from "./nodes/ai.node";
 
 // ========== NODE REGISTRY ==========
 // This is where you register all your node types
@@ -32,7 +34,9 @@ const NODE_REGISTRY: Record<string, NodeHandler> = {
   "jupiter" : jupiterNode,
   "webhook" : webhookNode,
   "watch-wallet" : watchWalletNode,
-  "postgres_db" : postgresDBNode
+  "postgres_db" : postgresDBNode,
+  "ai": aiNode,  // ✅ ADD THIS
+  "helius_indexer": heliusIndexerNode,
 };
 
 // ========== LOOKUP FUNCTION ==========

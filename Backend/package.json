@@ -33,6 +33,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "helius-sdk": "^2.0.2",
     "ioredis": "^5.8.2",
     "jsonwebtoken": "^9.0.2",
     "langchain": "^1.0.3",

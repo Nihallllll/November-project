@@ -4,6 +4,23 @@ import nodemailer from "nodemailer";
 
 /**
  * EMAIL NODE (With Encrypted Credentials)
+ * 
+ * Configuration (nodeData):
+ * - credentialId: string (required) - Email credential ID
+ * - userId: string (required) - User ID
+ * - to: string (required) - Recipient email address
+ * - subject: string (required) - Email subject
+ * - body: string (required) - Email body content
+ * - html: boolean (optional) - Send as HTML email (default: false)
+ * 
+ * Credential Structure (encrypted):
+ * {
+ *   host: "smtp.gmail.com",
+ *   port: 587,
+ *   secure: false,
+ *   user: "your@email.com",
+ *   pass: "your-app-password"
+ * }
  */
 export const emailNode: NodeHandler = {
   type: "email",
@@ -16,11 +33,11 @@ export const emailNode: NodeHandler = {
     try {
       // ========== VALIDATE ==========
       if (!credentialId || !userId) {
-        throw new Error("credentialId and userId required");
+        throw new Error("credentialId and userId are required");
       }
 
       if (!to || !subject || !body) {
-        throw new Error("to, subject, and body required");
+        throw new Error("to, subject, and body are required");
       }
 
       // ========== FETCH & DECRYPT CREDENTIAL ==========
@@ -29,13 +46,25 @@ export const emailNode: NodeHandler = {
         userId
       );
 
+      if (credential.type !== 'email') {
+        throw new Error(`Invalid credential type: expected 'email', got '${credential.type}'`);
+      }
+
       // Decrypt the data
       const emailCreds = CredentialService.decrypt(credential.data as string);
+
+      // ========== VALIDATE CREDENTIAL DATA ==========
+      if (!emailCreds.host || !emailCreds.port || !emailCreds.user || !emailCreds.pass) {
+        throw new Error("Invalid email credential: missing host, port, user, or pass");
+      }
+
+      context.logger(`email: credential validated - ${emailCreds.host}:${emailCreds.port}`);
 
       // ========== TEMPLATE REPLACEMENT ==========
       let processedBody = body;
       let processedSubject = subject;
 
+      // Replace {{input.key}} placeholders with input data
       if (input && typeof input === "object") {
         const replaceTemplates = (text: string) => {
           return text.replace(/\{\{input\.(\w+)\}\}/g, (match, key) => {
@@ -48,6 +77,7 @@ export const emailNode: NodeHandler = {
         processedSubject = replaceTemplates(subject);
       }
 
+      // Special handling for transaction approval (Jupiter swap, etc.)
       if (
         input &&
         (input as any).requiresApproval &&
@@ -55,38 +85,40 @@ export const emailNode: NodeHandler = {
       ) {
         const quote = (input as any).quote;
 
-        // Append transaction approval section
         const approvalSection = `
-    \n\n
-    ================================
-    TRANSACTION APPROVAL REQUIRED
-    ================================
-    
-    From: ${quote.inputAmount} tokens
-    To: ~${quote.outputAmount} tokens
-    Price Impact: ${quote.priceImpactPct}%
-    
-    ⏰ This transaction expires in 15 minutes
-    
-    👉 Approve Transaction: ${(input as any).approvalUrl}
-    
-    ================================
-  `;
+
+================================
+TRANSACTION APPROVAL REQUIRED
+================================
+
+From: ${quote.inputAmount} tokens
+To: ~${quote.outputAmount} tokens
+Price Impact: ${quote.priceImpactPct}%
+
+⏰ This transaction expires in 15 minutes
+
+👉 Approve Transaction: ${(input as any).approvalUrl}
+
+================================
+`;
 
         processedBody += approvalSection;
       }
 
-      // ========== SEND EMAIL ==========
+      context.logger(`email: sending to ${to}`);
+
+      // ========== CREATE TRANSPORTER ==========
       const transporter = nodemailer.createTransport({
         host: emailCreds.host,
-        port: emailCreds.port,
-        secure: emailCreds.secure,
+        port: Number(emailCreds.port),
+        secure: emailCreds.secure === true || emailCreds.secure === "true", // true for 465, false for 587
         auth: {
           user: emailCreds.user,
-          pass: emailCreds.password,
+          pass: emailCreds.pass,  // ✅ FIXED: was emailCreds.password
         },
       });
 
+      // ========== SEND EMAIL ==========
       const mailOptions: any = {
         from: emailCreds.from || emailCreds.user,
         to: to,
@@ -99,11 +131,9 @@ export const emailNode: NodeHandler = {
         mailOptions.text = processedBody;
       }
 
-      context.logger(`email: sending with encrypted credential`);
-
       const info = await transporter.sendMail(mailOptions);
 
-      context.logger(`email: ✅ sent! Message ID: ${info.messageId}`);
+      context.logger(`email: ✅ sent successfully! Message ID: ${info.messageId}`);
 
       return {
         sent: true,
@@ -118,6 +148,7 @@ export const emailNode: NodeHandler = {
     } catch (error: any) {
       context.logger(`email: ❌ ERROR - ${error.message}`);
 
+      // Return error object instead of throwing
       return {
         sent: false,
         error: error.message,
