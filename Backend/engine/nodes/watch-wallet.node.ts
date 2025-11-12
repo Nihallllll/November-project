@@ -125,6 +125,8 @@ export const watchWalletNode: NodeHandler = {
       // TOKEN BALANCE WATCH
       // ----------------
       
+      let tokenAccountExists = false;
+      
       try {
         const mintPublicKey = new PublicKey(tokenMint!);
         
@@ -134,16 +136,29 @@ export const watchWalletNode: NodeHandler = {
           publicKey
         );
 
+        context.logger(`watch-wallet: checking token account ${tokenAccountAddress.toBase58()}`);
+
         // Fetch token account
         const tokenAccount = await getAccount(connection, tokenAccountAddress);
         currentValue = Number(tokenAccount.amount);
+        tokenAccountExists = true;
+        
+        context.logger(`watch-wallet: token account found, balance: ${currentValue}`);
         
       } catch (error: any) {
         // Token account doesn't exist = balance is 0
-        if (error.message?.includes('could not find account')) {
+        const errorMsg = error.message || String(error);
+        
+        if (errorMsg.includes('could not find account') || 
+            errorMsg.includes('Invalid account') ||
+            errorMsg.includes('Account does not exist')) {
           currentValue = 0;
+          tokenAccountExists = false;
+          context.logger(`watch-wallet: token account not found, treating as 0 balance`);
         } else {
-          throw error;
+          // Unexpected error - log and rethrow
+          context.logger(`watch-wallet: unexpected error fetching token account: ${errorMsg}`);
+          throw new Error(`Failed to fetch token account: ${errorMsg}`);
         }
       }
 
@@ -156,6 +171,7 @@ export const watchWalletNode: NodeHandler = {
 
       additionalData = {
         tokenMint: tokenMint,
+        tokenAccountExists: tokenAccountExists,
         currentTokenBalance: currentValue,
         previousTokenBalance: previousValue,
         tokenChange: currentValue - previousValue

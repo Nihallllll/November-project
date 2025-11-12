@@ -105,24 +105,36 @@ export const heliusIndexerNode: NodeHandler = {
 
       context.logger('helius_indexer: API key decrypted successfully');
 
-      // ========== MAP TRANSACTION TYPES ==========
-      // Convert string transaction types to SDK enum values
+      // ========== VALIDATE TRANSACTION TYPES ==========
+      // Helius supports these transaction types as strings
+      const validTransactionTypes = [
+        'ANY', 'NFT_LISTING', 'NFT_BID', 'NFT_SALE', 'NFT_MINT', 'NFT_AUCTION_CREATED',
+        'NFT_AUCTION_UPDATED', 'NFT_AUCTION_CANCELLED', 'NFT_CANCEL_LISTING',
+        'SWAP', 'TOKEN_MINT', 'TRANSFER', 'BURN', 'FREEZE_ACCOUNT', 'THAW_ACCOUNT',
+      ];
+
       const mappedTransactionTypes = transactionTypes.map((type: string) => {
         const upperType = type.toUpperCase();
-        if (upperType in transactionTypes) {
-          return transactionTypes[upperType as keyof typeof transactionTypes];
+        if (validTransactionTypes.includes(upperType)) {
+          return upperType;
         }
-        context.logger(`helius_indexer: Warning - Unknown transaction type: ${type}`);
-        return transactionTypes.ANY;
+        context.logger(`helius_indexer: Warning - Unknown transaction type: ${type}, defaulting to ANY`);
+        return 'ANY';
       });
 
-      // ========== MAP WEBHOOK TYPE ==========
-      let mappedWebhookType = webhookType.ENHANCED;
-      if (webhookType.toLowerCase() === 'raw') {
-        mappedWebhookType = webhookType.RAW;
-      } else if (webhookType.toLowerCase() === 'discord') {
-        mappedWebhookType = webhookType.DISCORD;
+      context.logger(`helius_indexer: Transaction types: ${mappedTransactionTypes.join(', ')}`);
+
+      // ========== VALIDATE WEBHOOK TYPE ==========
+      const webhookTypeLower = (webhookType || 'enhanced').toLowerCase();
+      let mappedWebhookType: 'enhanced' | 'raw' | 'discord' = 'enhanced';
+      
+      if (webhookTypeLower === 'raw') {
+        mappedWebhookType = 'raw';
+      } else if (webhookTypeLower === 'discord') {
+        mappedWebhookType = 'discord';
       }
+
+      context.logger(`helius_indexer: Webhook type: ${mappedWebhookType}`);
 
       // ========== CREATE HELIUS WEBHOOK ==========
       context.logger('helius_indexer: Creating webhook on Helius');

@@ -1,0 +1,177 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 217.2 91.2% 59.8%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 210 40% 98%;
+    --card: 240 8% 8%;
+    --card-foreground: 210 40% 98%;
+    --popover: 240 8% 8%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 263 70% 65%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 189 70% 50%;
+    --secondary-foreground: 210 40% 98%;
+    --accent: 328 86% 58%;
+    --accent-foreground: 210 40% 98%;
+    --muted: 240 8% 15%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --destructive: 0 62.8% 50.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 240 8% 20%;
+    --input: 240 8% 20%;
+    --ring: 263 70% 65%;
+
+    /* Custom tokens for crypto landing page */
+    --gradient-primary: linear-gradient(135deg, hsl(263 70% 65%), hsl(189 70% 50%));
+    --gradient-secondary: linear-gradient(135deg, hsl(263 70% 65%), hsl(328 86% 58%));
+    --gradient-mesh: radial-gradient(at 0% 0%, hsl(263 70% 25%) 0px, transparent 50%),
+                     radial-gradient(at 100% 0%, hsl(189 70% 25%) 0px, transparent 50%),
+                     radial-gradient(at 100% 100%, hsl(328 86% 25%) 0px, transparent 50%);
+    
+    --glow-primary: 0 0 40px hsl(263 70% 65% / 0.3);
+    --glow-secondary: 0 0 40px hsl(189 70% 50% / 0.3);
+    --shadow-elevated: 0 20px 60px -10px hsl(240 10% 3.9% / 0.8);
+    
+    --glass-bg: hsl(240 8% 8% / 0.4);
+    --glass-border: hsl(240 8% 20% / 0.5);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-weight: 700;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary via-secondary to-accent;
+  }
+
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+  }
+
+  .glow-primary {
+    box-shadow: var(--glow-primary);
+  }
+
+  .glow-secondary {
+    box-shadow: var(--glow-secondary);
+  }
+
+  .perspective-card {
+    transform-style: preserve-3d;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .perspective-card:hover {
+    transform: perspective(1000px) rotateX(5deg) rotateY(5deg) translateZ(20px);
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0) translateX(0);
+      opacity: 0.2;
+    }
+    50% {
+      transform: translateY(-20px) translateX(10px);
+      opacity: 0.5;
+    }
+  }
+
+  .animate-float {
+    animation: float linear infinite;
+  }
+}
+
+/* ReactFlow custom styles */
+.react-flow__node {
+  @apply transition-all duration-200;
+}
+
+.react-flow__node.selected {
+  @apply ring-2 ring-primary shadow-lg;
+}
+
+.react-flow__edge-path {
+  @apply stroke-2;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  @apply stroke-primary;
+}
+
+/* Glow effect for AI nodes */
+.ai-node-glow {
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+}
+
+/* Animated particles for executing flows */
+@keyframes particle-flow {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.react-flow__edge.executing {
+  animation: particle-flow 1s linear infinite;
+  stroke-dasharray: 5;
+}
+
+/* Smooth scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-secondary;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/30 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/50;
+}

@@ -15,6 +15,7 @@ import { watchWalletNode } from "./nodes/watch-wallet.node";
 import { postgresDBNode } from "./nodes/postgres-db.node";
 import { heliusIndexerNode } from "./nodes/helius-indexer.node";
 import { aiNode } from "./nodes/ai.node";
+import { mergeNode } from "./nodes/merge.node";
 
 // ========== NODE REGISTRY ==========
 // This is where you register all your node types
@@ -35,8 +36,9 @@ const NODE_REGISTRY: Record<string, NodeHandler> = {
   "webhook" : webhookNode,
   "watch-wallet" : watchWalletNode,
   "postgres_db" : postgresDBNode,
-  "ai": aiNode,  // ✅ ADD THIS
+  "ai": aiNode,
   "helius_indexer": heliusIndexerNode,
+  "merge": mergeNode,  // ✅ Merge node for combining multiple inputs
 };
 
 // ========== LOOKUP FUNCTION ==========

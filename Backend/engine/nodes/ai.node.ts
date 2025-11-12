@@ -252,6 +252,17 @@ function getDefaultModel(provider: string): string {
 /**
  * Create LangChain tools from available nodes and DBs
  * Docs: https://docs.langchain.com/docs/modules/model_io/chat/function_calling/
+ * 
+ * NOTE: Tool execution is currently DISABLED for safety reasons.
+ * Enabling AI to execute arbitrary nodes/queries requires:
+ * 1. Proper permission system (which nodes can AI execute?)
+ * 2. Rate limiting (prevent AI from spamming expensive operations)
+ * 3. Cost tracking (executing nodes may incur costs)
+ * 4. Cycle prevention (AI calling itself recursively)
+ * 5. User approval workflow (for sensitive operations like transfers)
+ * 
+ * Current Implementation: Returns descriptive placeholders
+ * Future: Import getNodeHandler and PostgresQueryService for real execution
  */
 function createTools(
   availableNodes: any[],
@@ -260,40 +271,90 @@ function createTools(
 ): DynamicStructuredTool[] {
   const tools: DynamicStructuredTool[] = [];
 
-  // Add node execution tools
+  // ========== NODE EXECUTION TOOLS ==========
+  // Currently disabled - see NOTE above
+  
   for (const node of availableNodes) {
     tools.push(
       new DynamicStructuredTool({
         name: `execute_node_${node.id}`,
-        description: `Execute node: ${node.type}. Use this to trigger ${node.type} node with custom inputs.`,
+        description: `Execute node: ${node.type} (${node.id}). Use this to trigger ${node.type} node with custom inputs.`,
         schema: z.object({
           nodeId: z.string().describe('The ID of the node to execute'),
           inputs: z.record(z.string(), z.any()).describe('Input data for the node'),
         }),
         func: async ({ nodeId, inputs }) => {
-          context.logger(`ai: tool executing node ${nodeId}`);
-          // Execute the node via your existing node executor
-          // This is a placeholder - implement based on your architecture
-          return { success: true, nodeId, result: 'Node executed' };
+          context.logger(`ai: tool attempting to execute node ${nodeId}`);
+          
+          // ⚠️ SAFETY: Node execution is disabled pending permission system
+          // To enable: Uncomment and implement proper checks
+          
+          // // Import dynamically to avoid circular dependencies
+          // const { getNodeHandler } = await import('../registry');
+          // const handler = getNodeHandler(node.type);
+          // 
+          // // Execute with safety checks
+          // if (!canAIExecuteNode(node.type, context.userId)) {
+          //   throw new Error(`AI is not permitted to execute ${node.type} nodes`);
+          // }
+          // 
+          // const result = await handler.execute(node.data, inputs, context);
+          // return { success: true, nodeId, result };
+
+          return {
+            success: false,
+            nodeId,
+            message: 'Node execution via AI tools is currently disabled for safety',
+            reason: 'Requires permission system, rate limiting, and approval workflow',
+            nodeType: node.type,
+            suggestion: 'Use node outputs already available in the flow instead',
+          };
         },
       })
     );
   }
 
-  // Add database query tools
+  // ========== DATABASE QUERY TOOLS ==========
+  // Currently disabled - see NOTE above
+  
   for (const db of availableDBs) {
     tools.push(
       new DynamicStructuredTool({
         name: `query_database_${db.id}`,
-        description: `Query database: ${db.name}. Use this to run SQL queries.`,
+        description: `Query database: ${db.name} (${db.id}). Use this to run READ-ONLY SQL queries.`,
         schema: z.object({
-          query: z.string().describe('SQL query to execute'),
+          query: z.string().describe('SQL SELECT query to execute (READ-ONLY)'),
         }),
         func: async ({ query }) => {
-          context.logger(`ai: tool executing DB query`);
-          // Execute DB query via your existing DB service
-          // This is a placeholder - implement based on your architecture
-          return { success: true, rows: [] };
+          context.logger(`ai: tool attempting to query database ${db.id}`);
+          
+          // ⚠️ SAFETY: DB queries are disabled pending permission system
+          // To enable: Uncomment and implement proper checks
+          
+          // // Import dynamically
+          // const { PostgresQueryService } = await import('../../services/postgres-query.service');
+          // 
+          // // Validate READ-ONLY (prevent DELETE, UPDATE, DROP)
+          // const queryUpper = query.trim().toUpperCase();
+          // if (!queryUpper.startsWith('SELECT') && !queryUpper.startsWith('WITH')) {
+          //   throw new Error('AI can only execute SELECT queries');
+          // }
+          // 
+          // // Execute with row limit
+          // const rows = await PostgresQueryService.executeQuery(db.credentialId, {
+          //   query: query + ' LIMIT 100', // Force row limit
+          //   params: []
+          // });
+          // 
+          // return { success: true, rows, count: rows.length };
+
+          return {
+            success: false,
+            databaseId: db.id,
+            message: 'Database queries via AI tools are currently disabled for safety',
+            reason: 'Requires SQL injection prevention, query cost limits, and audit logging',
+            suggestion: 'Use postgres_db node in your flow instead',
+          };
         },
       })
     );
@@ -301,3 +362,36 @@ function createTools(
 
   return tools;
 }
+
+/**
+ * Future: Permission check for AI node execution
+ * Determines which node types AI is allowed to execute autonomously
+ */
+// function canAIExecuteNode(nodeType: string, userId: string): boolean {
+//   // Whitelist of safe node types AI can execute
+//   const safeNodeTypes = [
+//     'http_request',  // External API calls
+//     'log',           // Logging
+//     'delay',         // Waiting
+//   ];
+//   
+//   // Blacklist of dangerous node types AI should NEVER execute
+//   const dangerousNodeTypes = [
+//     'jupiter',       // Token swaps (money!)
+//     'token_program', // Token transfers (money!)
+//     'webhook',       // External notifications (spam risk)
+//     'telegram',      // Messaging (spam risk)
+//     'email',         // Email (spam risk)
+//   ];
+//   
+//   if (dangerousNodeTypes.includes(nodeType)) {
+//     return false;
+//   }
+//   
+//   if (safeNodeTypes.includes(nodeType)) {
+//     return true;
+//   }
+//   
+//   // Default: require user approval
+//   return false;
+// }
