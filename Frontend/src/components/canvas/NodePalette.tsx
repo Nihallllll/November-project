@@ -15,6 +15,7 @@ const nodeCategories: NodeCategory[] = [
   {
     name: 'Triggers',
     nodes: [
+      { type: 'schedule', label: 'Schedule Trigger', icon: '⏰', color: 'bg-indigo-500' },
       { type: 'webhook', label: 'Webhook', icon: '🔔', color: 'bg-blue-500' },
       { type: 'helius_indexer', label: 'Helius Indexer', icon: '📡', color: 'bg-blue-600' },
       { type: 'watch_wallet', label: 'Watch Wallet', icon: '👁️', color: 'bg-blue-700' },

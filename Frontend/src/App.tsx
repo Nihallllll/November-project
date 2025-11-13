@@ -6,6 +6,7 @@ import SignUpPage from './pages/SignUpPage';
 import DashboardPage from './pages/DashboardPage';
 import CanvasPage from './pages/CanvasPage';
 import { ThemeProvider } from './components/ThemeProvider';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
@@ -15,8 +16,16 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignUpPage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/canvas/:id?" element={<CanvasPage />} />
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/canvas/:id?" element={
+            <ProtectedRoute>
+              <CanvasPage />
+            </ProtectedRoute>
+          } />
         </Routes>
         <Toaster position="top-right" />
       </BrowserRouter>

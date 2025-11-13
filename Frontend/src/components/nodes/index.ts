@@ -15,6 +15,7 @@ import SolanaRPCNode from './SolanaRPCNode';
 import TokenProgramNode from './TokenProgramNode';
 import DelayNode from './DelayNode';
 import LogNode from './LogNode';
+import ScheduleNode from './ScheduleNode';
 
 export const nodeTypes = {
   ai: AINode,
@@ -34,4 +35,5 @@ export const nodeTypes = {
   token_program: TokenProgramNode,
   delay: DelayNode,
   log: LogNode,
+  schedule: ScheduleNode,
 };

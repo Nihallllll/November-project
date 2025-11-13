@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
+import api from '../api/client';
 
 export default function SignUpPage() {
   const navigate = useNavigate();
@@ -27,17 +28,30 @@ export default function SignUpPage() {
     setLoading(true);
 
     try {
-      // TODO: Implement actual registration
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      localStorage.setItem('auth_token', 'demo_token_' + Date.now());
-      localStorage.setItem('user_email', email);
+      const res = await api.post('/auth/register', {
+        email,
+        password,
+      });
+
+      const user = res.data?.data?.user;
+      const token = res.data?.data?.token;
+
+      if (!token || !user) {
+        throw new Error('Invalid response from server');
+      }
+
+      // Store auth data
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('user_email', user.email);
+      localStorage.setItem('user_id', user.id);
       localStorage.setItem('user_name', name);
       
       toast.success('Account created successfully!');
       navigate('/dashboard');
-    } catch (error) {
-      toast.error('Sign up failed. Please try again.');
+    } catch (error: any) {
+      console.error('Sign up failed:', error);
+      const errorMsg = error.response?.data?.error || 'Registration failed. Please try again.';
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }

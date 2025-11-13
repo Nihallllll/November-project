@@ -53,6 +53,16 @@ executeFlow(runId: string, userId: string) {
 async function executeNodes(flowJson: FlowJson, runId: string , userId : string) {
   console.log("📝 Executing nodes with graph-based execution...");
 
+  // ========== VALIDATION: Check flowJson structure ==========
+  if (!flowJson || !flowJson.nodes || !Array.isArray(flowJson.nodes)) {
+    throw new Error(`Invalid flow JSON: nodes array is missing or invalid. Got: ${JSON.stringify(flowJson)}`);
+  }
+  
+  if (!flowJson.connections || !Array.isArray(flowJson.connections)) {
+    console.warn(`⚠️ No connections found in flow, initializing empty array`);
+    flowJson.connections = [];
+  }
+
   const results: any[] = [];
   const nodeOutputs = new Map<string, any>();  // Store all node outputs
   const executedNodes = new Set<string>();     // Track executed nodes
@@ -104,6 +114,8 @@ async function executeNodes(flowJson: FlowJson, runId: string , userId : string)
     }
     
     // ========== CONDITIONAL BRANCHING: CHECK CONDITIONS ==========
+
+    
     const shouldExecute = await checkIfNodeShouldExecute(node, flowJson.connections, nodeOutputs);
     
     if (!shouldExecute) {

@@ -3,12 +3,13 @@ import { Node } from 'reactflow';
 import AINodeConfig from './configs/AINodeConfig';
 import ConditionNodeConfig from './configs/ConditionNodeConfig';
 import WalletBalanceNodeConfig from './configs/WalletBalanceNodeConfig';
+import ScheduleNodeConfig from './configs/ScheduleNodeConfig';
+import TelegramNodeConfig from './configs/TelegramNodeConfig';
+import EmailNodeConfig from './configs/EmailNodeConfig';
+import PostgresDBNodeConfig from './configs/PostgresDBNodeConfig';
 import {
   PythPriceNodeConfig,
   JupiterNodeConfig,
-  TelegramNodeConfig,
-  EmailNodeConfig,
-  PostgresDBNodeConfig,
   HTTPRequestNodeConfig,
   WebhookNodeConfig,
   HeliusIndexerNodeConfig,
@@ -41,6 +42,8 @@ export default function NodeInspector({ selectedNode, onClose, onUpdate }: NodeI
         return <ConditionNodeConfig node={selectedNode} onUpdate={handleUpdate} />;
       case 'merge':
         return <MergeNodeConfig />;
+      case 'schedule':
+        return <ScheduleNodeConfig node={selectedNode} onUpdate={handleUpdate} />;
       case 'wallet_balance':
         return <WalletBalanceNodeConfig node={selectedNode} onUpdate={handleUpdate} />;
       case 'pyth_price':

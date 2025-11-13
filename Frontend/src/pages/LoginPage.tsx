@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import api from '../api/client';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -14,28 +15,83 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // TODO: Implement actual authentication
-      // For now, simulate login
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Store demo token
-      localStorage.setItem('auth_token', 'demo_token_' + Date.now());
-      localStorage.setItem('user_email', email);
+      const res = await api.post('/auth/login', {
+        email,
+        password,
+      });
+
+      const user = res.data?.data?.user;
+      const token = res.data?.data?.token;
+
+      if (!token || !user) {
+        throw new Error('Invalid response from server');
+      }
+
+      // Store auth data
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('user_email', user.email);
+      localStorage.setItem('user_id', user.id);
       
       toast.success('Welcome back!');
       navigate('/dashboard');
-    } catch (error) {
-      toast.error('Login failed. Please try again.');
+    } catch (error: any) {
+      console.error('Login failed:', error);
+      const errorMsg = error.response?.data?.error || 'Invalid email or password';
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
   const handleDemoLogin = () => {
-    localStorage.setItem('auth_token', 'demo_token_' + Date.now());
-    localStorage.setItem('user_email', 'demo@example.com');
-    toast.success('Logged in as demo user!');
-    navigate('/dashboard');
+    // Try to login to backend as a demo user. If the demo account doesn't exist, register it.
+    (async () => {
+      const demoEmail = 'demo@example.com';
+      const demoPassword = 'demopass123';
+
+      try {
+        // Try login first
+        const res = await api.post('/auth/login', {
+          email: demoEmail,
+          password: demoPassword,
+        });
+
+        const user = res.data?.data?.user;
+        const token = res.data?.data?.token;
+
+        if (token && user) {
+          localStorage.setItem('auth_token', token);
+          localStorage.setItem('user_email', user.email || demoEmail);
+          localStorage.setItem('user_id', user.id);
+          toast.success('Logged in as demo user!');
+          navigate('/dashboard');
+          return;
+        }
+      } catch (err) {
+        // If login failed, try to register the demo user (idempotent)
+        try {
+          const res = await api.post('/auth/register', {
+            email: demoEmail,
+            password: demoPassword,
+          });
+
+          const user = res.data?.data?.user;
+          const token = res.data?.data?.token;
+
+          if (token && user) {
+            localStorage.setItem('auth_token', token);
+            localStorage.setItem('user_email', user.email || demoEmail);
+            localStorage.setItem('user_id', user.id);
+            toast.success('Demo account created and logged in!');
+            navigate('/dashboard');
+            return;
+          }
+        } catch (err2) {
+          console.error('Demo login/register failed', err2);
+          toast.error('Demo login failed. Please register an account.');
+        }
+      }
+    })();
   };
 
   return (

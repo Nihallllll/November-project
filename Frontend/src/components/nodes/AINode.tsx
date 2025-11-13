@@ -21,42 +21,28 @@ export default memo(({ data, selected }: NodeProps) => {
           : '0 4px 12px rgba(0, 0, 0, 0.2)',
       }}
     >
-      {/* LEFT HANDLES - INPUTS */}
-      
-      {/* Top Left: Data Input */}
+      {/* LEFT HANDLE - INPUT */}
       <Handle
         type="target"
         position={Position.Left}
-        id="data"
-        style={{ top: '25%', background: '#3b82f6' }}
+        id="input"
+        style={{ top: '50%', background: '#3b82f6' }}
         className="w-3 h-3 border-2 border-white"
       />
-      <div className="absolute -left-20 top-[22%] text-xs text-muted-foreground whitespace-nowrap">
+      <div className="absolute -left-20 top-[47%] text-xs text-muted-foreground whitespace-nowrap">
         Data In
       </div>
 
-      {/* Middle Left: Memory Input */}
+      {/* BOTTOM HANDLE - DATABASE INPUT */}
       <Handle
         type="target"
-        position={Position.Left}
-        id="memory"
-        style={{ top: '50%', background: '#8b5cf6' }}
+        position={Position.Bottom}
+        id="database"
+        style={{ left: '50%', background: '#8b5cf6' }}
         className="w-3 h-3 border-2 border-white"
       />
-      <div className="absolute -left-24 top-[47%] text-xs text-muted-foreground whitespace-nowrap">
-        Memory In
-      </div>
-
-      {/* Bottom Left: Merge Input */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="merge"
-        style={{ top: '75%', background: '#ec4899' }}
-        className="w-3 h-3 border-2 border-white"
-      />
-      <div className="absolute -left-24 top-[72%] text-xs text-muted-foreground whitespace-nowrap">
-        Merge In
+      <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs text-muted-foreground whitespace-nowrap">
+        Database
       </div>
 
       {/* Node Content */}
@@ -102,30 +88,16 @@ export default memo(({ data, selected }: NodeProps) => {
         </div>
       </div>
 
-      {/* RIGHT HANDLES - OUTPUTS */}
-      
-      {/* Top Right: Success Output */}
+      {/* RIGHT HANDLE - OUTPUT */}
       <Handle
         type="source"
         position={Position.Right}
-        id="success"
-        style={{ top: '35%', background: '#10b981' }}
+        id="output"
+        style={{ top: '50%', background: '#10b981' }}
         className="w-3 h-3 border-2 border-white"
       />
-      <div className="absolute -right-24 top-[32%] text-xs text-muted-foreground whitespace-nowrap">
-        Success
-      </div>
-
-      {/* Bottom Right: Error Output */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="error"
-        style={{ top: '65%', background: '#ef4444' }}
-        className="w-3 h-3 border-2 border-white"
-      />
-      <div className="absolute -right-20 top-[62%] text-xs text-muted-foreground whitespace-nowrap">
-        Error
+      <div className="absolute -right-20 top-[47%] text-xs text-muted-foreground whitespace-nowrap">
+        Output
       </div>
 
       {/* Status Indicator */}

@@ -14,7 +14,7 @@ import ReactFlow, {
   EdgeTypes,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { Save, Play, ArrowLeft, Moon, Sun, Trash2 } from 'lucide-react';
+import { Save, Play, ArrowLeft, Moon, Sun, Trash2, Home } from 'lucide-react';
 import { flowsApi } from '../api/flows';
 import { nodeTypes } from '../components/nodes/';
 import NodePalette from '../components/canvas/NodePalette';
@@ -22,6 +22,8 @@ import NodeInspector from '../components/canvas/NodeInspector';
 import CustomEdge from '../components/canvas/CustomEdge';
 import { useTheme } from '../components/ThemeProvider';
 import { toast } from 'sonner';
+import { isValidConnection } from '../utils/nodeConnectionRules';
+import UserIndicator from '../components/UserIndicator';
 
 export default function CanvasPage() {
   const { id } = useParams();
@@ -71,6 +73,7 @@ export default function CanvasPage() {
       if (flow.json?.connections) {
         const flowEdges = flow.json.connections.map((conn: any, index: number) => ({
           id: `e${index}`,
+          type: 'default',
           source: conn.from,
           target: conn.to,
           animated: true,
@@ -86,13 +89,42 @@ export default function CanvasPage() {
   };
 
   const onConnect = useCallback(
-    (params: Edge | Connection) => setEdges((eds) => addEdge({
-      ...params,
-      animated: true,
-      style: { stroke: 'hsl(263 70% 65%)', strokeWidth: 2 },
-      data: { onDelete: handleEdgeDelete }
-    }, eds)),
-    [setEdges, handleEdgeDelete]
+    (params: Edge | Connection) => {
+      // Get source and target nodes
+      const sourceNode = nodes.find(n => n.id === params.source);
+      const targetNode = nodes.find(n => n.id === params.target);
+
+      if (!sourceNode || !targetNode) {
+        toast.error('Invalid connection: Node not found');
+        return;
+      }
+
+      // Validate connection
+      const validation = isValidConnection(
+        sourceNode.type || '',
+        params.sourceHandle || 'output',
+        targetNode.type || '',
+        params.targetHandle || 'input',
+        edges
+      );
+
+      if (!validation.valid) {
+        toast.error(validation.reason || 'Invalid connection');
+        return;
+      }
+
+      // Add the edge
+      setEdges((eds) => addEdge({
+        ...params,
+        type: 'default',
+        animated: true,
+        style: { stroke: 'hsl(263 70% 65%)', strokeWidth: 2 },
+        data: { onDelete: handleEdgeDelete }
+      }, eds));
+
+      toast.success('Connection created');
+    },
+    [nodes, edges, setEdges, handleEdgeDelete]
   );
 
   const deleteSelectedNodes = useCallback(() => {
@@ -156,14 +188,25 @@ export default function CanvasPage() {
         })),
       };
 
+      // Extract schedule from schedule nodes (if any)
+      const scheduleNode = nodes.find(node => node.type === 'schedule');
+      let schedule = null;
+      
+      if (scheduleNode?.data.scheduleType === 'interval' && scheduleNode?.data.interval) {
+        schedule = scheduleNode.data.interval;
+      } else if (scheduleNode?.data.scheduleType === 'cron' && scheduleNode?.data.cronExpression) {
+        schedule = scheduleNode.data.cronExpression;
+      }
+
       if (id) {
-        await flowsApi.update(id, { name: flowName, json: flowJson });
+        await flowsApi.update(id, { name: flowName, json: flowJson, schedule });
         toast.success('Flow saved!');
       } else {
         const newFlow = await flowsApi.create({
           name: flowName,
           json: flowJson,
           isActive: false,
+          schedule,
         });
         navigate(`/canvas/${newFlow.id}`, { replace: true });
         toast.success('Flow created!');
@@ -223,6 +266,13 @@ export default function CanvasPage() {
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
+              <button
+                onClick={() => navigate('/')}
+                className="p-2 rounded-lg hover:bg-primary/10 transition-colors"
+                title="Go to Home"
+              >
+                <Home className="w-5 h-5" />
+              </button>
               <input
                 type="text"
                 value={flowName}
@@ -233,6 +283,7 @@ export default function CanvasPage() {
             </div>
             
             <div className="flex items-center gap-3">
+              <UserIndicator />
               <button
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                 className="p-2 rounded-lg hover:bg-primary/10 transition-colors"

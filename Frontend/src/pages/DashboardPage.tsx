@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Play, Pause, Settings, Trash2, BarChart3, Moon, Sun } from 'lucide-react';
+import { Plus, Play, Pause, Settings, Trash2, BarChart3, Moon, Sun, Home, Key } from 'lucide-react';
 import { flowsApi } from '../api/flows';
 import type { Flow } from '../types/flow.types';
 import { useTheme } from '../components/ThemeProvider';
+import CredentialManager from '../components/canvas/CredentialManager';
+import UserIndicator from '../components/UserIndicator';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const [flows, setFlows] = useState<Flow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCredentialManager, setShowCredentialManager] = useState(false);
 
   useEffect(() => {
     loadFlows();
@@ -66,6 +69,22 @@ export default function DashboardPage() {
             <p className="text-sm text-muted-foreground">Manage and monitor your automation flows</p>
           </div>
           <div className="flex items-center gap-3">
+            <UserIndicator />
+            <button
+              onClick={() => navigate('/')}
+              className="p-2 rounded-lg hover:bg-accent transition-colors"
+              title="Go to Home"
+            >
+              <Home className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setShowCredentialManager(true)}
+              className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
+              title="Manage Credentials"
+            >
+              <Key className="w-4 h-4" />
+              <span className="hidden sm:inline">Credentials</span>
+            </button>
             <button
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               className="p-2 rounded-lg hover:bg-accent transition-colors"
@@ -164,6 +183,14 @@ export default function DashboardPage() {
           </div>
         )}
       </main>
+
+      {/* Credential Manager Modal */}
+      {showCredentialManager && (
+        <CredentialManager
+          userId={localStorage.getItem('user_id') || 'demo-user'}
+          onClose={() => setShowCredentialManager(false)}
+        />
+      )}
     </div>
   );
 }
