@@ -1,18 +1,23 @@
 /**
  * ================================================================
- * AI NODE - LANGCHAIN.JS V1.0 (NOVEMBER 2025)
+ * AI NODE - PRODUCTION READY (NOVEMBER 2024)
  * ================================================================
  * 
- * Using LangChain.js v1.0 with:
- * - Universal model support (OpenRouter, OpenAI, Anthropic, etc.)
+ * Supported AI Providers:
+ * - OpenAI (GPT-5.1, GPT-5-mini, o3, o4-mini, GPT-4.1)
+ * - Google Gemini (Gemini 2.5 Pro, 2.5 Flash, 2.0 Flash)
+ * 
+ * Features:
  * - Built-in tool calling
  * - Conversation memory
  * - Agent capabilities
  * 
- * Docs: https://docs.langchain.com/
+ * Latest Model Docs:
+ * - OpenAI: https://platform.openai.com/docs/models
+ * - Gemini: https://ai.google.dev/gemini-api/docs/models/gemini
  * 
- * @version 7.0.0 - PRODUCTION READY
- * @date November 2025
+ * @version 9.0.0 - LATEST MODELS (Nov 2024)
+ * @date November 2024
  * ================================================================
  */
 
@@ -21,8 +26,9 @@ import type { AINodeData } from '../../types/ai.types';
 import { AIMemoryService } from '../../services/llm/ai-memory.services';
 import { CredentialService } from '../../services/credentail.service';
 
-// LangChain imports
+// LangChain imports - Only OpenAI and Google
 import { ChatOpenAI } from '@langchain/openai';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { HumanMessage, SystemMessage, AIMessage } from '@langchain/core/messages';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
@@ -143,28 +149,34 @@ export const aiNode: NodeHandler = {
         `ai: execution complete (${promptTokens} input tokens, ${completionTokens} output tokens)`
       );
 
-      // 9. Save conversation to memory
-      await AIMemoryService.saveMemory(
-        context.currentNodeId,
-        context.runId,
-        context.flowId,
-        context.userId,
-        {
-          conversation: [
-            ...messages.map((m) => ({ role: m._getType(), content: m.content })),
-            { role: 'assistant', content: responseText },
-          ],
-          metadata: {
-            model,
-            provider: providerLower,
-            toolCalls: toolResults,
+      // 9. Save conversation to memory (non-blocking - don't fail if memory save fails)
+      try {
+        await AIMemoryService.saveMemory(
+          context.currentNodeId,
+          context.runId,
+          context.flowId,
+          context.userId,
+          {
+            conversation: [
+              ...messages.map((m) => ({ role: m._getType(), content: m.content })),
+              { role: 'assistant', content: responseText },
+            ],
+            metadata: {
+              model,
+              provider: providerLower,
+              toolCalls: toolResults,
+            },
+            finalResponse: responseText,
           },
-          finalResponse: responseText,
-        },
-        memoryConfig
-      );
+          memoryConfig
+        );
+        context.logger(`ai: memory saved successfully`);
+      } catch (memoryError: any) {
+        // ⚠️ Memory save failed, but don't fail the whole node
+        context.logger(`ai: warning - failed to save memory: ${memoryError.message}`);
+      }
 
-      // 10. Return final result
+      // 10. Return final result (always return response, even if memory fails)
       return {
         status: 'success',
         response: responseText,
@@ -195,8 +207,11 @@ export const aiNode: NodeHandler = {
 // ================================================================
 
 /**
- * Create LangChain model (supports OpenRouter!)
- * Docs: https://docs.langchain.com/docs/integrations/chat/
+ * Create LangChain model - OpenAI or Google Gemini
+ * 
+ * Latest Models:
+ * - OpenAI: https://platform.openai.com/docs/models
+ * - Gemini: https://ai.google.dev/gemini-api/docs/models/gemini
  */
 function createLangChainModel(
   provider: string,
@@ -204,49 +219,38 @@ function createLangChainModel(
   model: string,
   temperature: number,
   maxTokens: number
-): ChatOpenAI {
-  const config: any = {
-    apiKey,
-    model,
-    temperature,
-    maxTokens,
-  };
-
-  // ✅ OpenRouter support via ChatOpenAI with custom baseURL
-  // Source: https://docs.langchain.com/docs/integrations/chat/#chat-completions-api
-  if (provider === 'openrouter') {
-    config.configuration = {
-      baseURL: 'https://openrouter.ai/api/v1',
-      defaultHeaders: {
-        'HTTP-Referer': 'https://your-app.com',
-        'X-Title': 'Solana Automation Platform',
-      },
-    };
-  } else if (provider === 'groq') {
-    config.configuration = {
-      baseURL: 'https://api.groq.com/openai/v1',
-    };
-  } else if (provider === 'together') {
-    config.configuration = {
-      baseURL: 'https://api.together.xyz/v1',
-    };
+): ChatOpenAI | ChatGoogleGenerativeAI {
+  // ✅ Google Gemini (FREE with generous quotas)
+  if (provider === 'google' || provider === 'gemini') {
+    return new ChatGoogleGenerativeAI({
+      apiKey,
+      model: model || 'gemini-2.5-flash',
+      temperature,
+      maxOutputTokens: maxTokens,
+    });
   }
 
-  return new ChatOpenAI(config);
+  // ✅ OpenAI (GPT-5, o3, GPT-4.1)
+  return new ChatOpenAI({
+    apiKey,
+    model: model || 'gpt-5-mini',
+    temperature,
+    maxTokens,
+  });
 }
 
 /**
  * Get default model for each provider
+ * Using latest stable models as of November 2024
  */
 function getDefaultModel(provider: string): string {
   const defaults: Record<string, string> = {
-    openai: 'gpt-3.5-turbo',
-    openrouter: 'anthropic/claude-3.5-sonnet',
-    groq: 'llama-3.1-70b-versatile',
-    together: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
+    openai: 'gpt-5-mini',          // Latest fast model
+    google: 'gemini-2.5-flash',    // Latest stable, FREE
+    gemini: 'gemini-2.5-flash',    // Alias for google
   };
 
-  return defaults[provider] || 'gpt-3.5-turbo';
+  return defaults[provider] || 'gpt-5-mini';
 }
 
 /**

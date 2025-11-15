@@ -174,6 +174,13 @@ export default function CanvasPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Validate flow has at least one node
+      if (nodes.length === 0) {
+        toast.error('Please add at least one node to the flow');
+        setSaving(false);
+        return;
+      }
+
       const flowJson = {
         nodes: nodes.map(node => ({
           id: node.id,
@@ -198,22 +205,32 @@ export default function CanvasPage() {
         schedule = scheduleNode.data.cronExpression;
       }
 
+      console.log('Saving flow:', {
+        name: flowName,
+        nodeCount: nodes.length,
+        edgeCount: edges.length,
+        hasSchedule: !!schedule
+      });
+
       if (id) {
-        await flowsApi.update(id, { name: flowName, json: flowJson, schedule });
+        await flowsApi.update(id, { name: flowName, flowJson, schedule });
         toast.success('Flow saved!');
       } else {
         const newFlow = await flowsApi.create({
           name: flowName,
-          json: flowJson,
+          flowJson,
           isActive: false,
           schedule,
         });
         navigate(`/canvas/${newFlow.id}`, { replace: true });
         toast.success('Flow created!');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save flow:', error);
-      toast.error('Failed to save flow');
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      const errorMsg = error.response?.data?.error || error.message || 'Failed to save flow';
+      toast.error(errorMsg);
     } finally {
       setSaving(false);
     }
@@ -221,16 +238,22 @@ export default function CanvasPage() {
 
   const handleRun = async () => {
     if (!id) {
-      toast.error('Please save the flow first');
+      // Auto-save before running
+      toast.info('Saving flow before execution...');
+      await handleSave();
       return;
     }
 
     try {
-      await flowsApi.runFlow(id);
-      toast.success('Flow execution started!');
-    } catch (error) {
+      console.log('Running flow:', id);
+      await flowsApi.run(id);
+      toast.success('Flow execution started! Check the backend logs for progress.');
+    } catch (error: any) {
       console.error('Failed to run flow:', error);
-      toast.error('Failed to run flow');
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      const errorMsg = error.response?.data?.error || error.message || 'Failed to run flow';
+      toast.error(errorMsg);
     }
   };
 
@@ -247,7 +270,7 @@ export default function CanvasPage() {
   }, [setNodes]);
 
   return (
-    <div className="h-screen w-full bg-background relative overflow-hidden flex">
+    <div className="h-screen w-full bg-background relative overflow-hidden flex" style={{ zoom: 0.9 }}>
       {/* Gradient mesh background */}
       <div className="absolute inset-0 bg-gradient-mesh opacity-30" />
       

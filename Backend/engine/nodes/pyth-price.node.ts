@@ -35,6 +35,11 @@ export const pythPriceNode: NodeHandler = {
     // Priority: coinId > symbol > default
     let coinId = nodeData.coinId as string | undefined;
     
+    // Clean up whitespace (common input error)
+    if (coinId && typeof coinId === 'string') {
+      coinId = coinId.trim().toLowerCase();
+    }
+    
     // Legacy support: convert old "Crypto.SOL/USD" format to coin ID
     if (!coinId && nodeData.symbol) {
       const symbolMap: Record<string, string> = {
@@ -42,7 +47,8 @@ export const pythPriceNode: NodeHandler = {
         "Crypto.BTC/USD": "bitcoin",
         "Crypto.ETH/USD": "ethereum",
       };
-      coinId = symbolMap[nodeData.symbol as string] || nodeData.symbol as string;
+      let symbol = (nodeData.symbol as string).trim();
+      coinId = symbolMap[symbol] || symbol.toLowerCase();
     }
     
     // Default to solana if nothing provided

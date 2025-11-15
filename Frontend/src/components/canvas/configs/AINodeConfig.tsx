@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Node } from 'reactflow';
-import { Plus } from 'lucide-react';
 import { credentialsApi, type Credential } from '../../../api/credentials';
 import { toast } from 'sonner';
 
@@ -35,9 +34,9 @@ export default function AINodeConfig({ node, onUpdate }: AINodeConfigProps) {
       const userId = localStorage.getItem('user_id') || 'demo-user';
       const allCreds = await credentialsApi.list(userId);
       
-      // Filter AI credentials (OpenAI, Anthropic, OpenRouter)
+      // Filter AI credentials (Only OpenAI and Google Gemini)
       const aiCreds = allCreds.filter(c => 
-        ['openai', 'anthropic', 'openrouter'].includes(c.type)
+        ['openai', 'google', 'gemini'].includes(c.type)
       );
       setCredentials(aiCreds);
       
@@ -51,6 +50,40 @@ export default function AINodeConfig({ node, onUpdate }: AINodeConfigProps) {
       setLoadingCreds(false);
     }
   };
+
+  // Latest models as of November 2024
+  const models = {
+    openai: [
+      'gpt-5.1',             // Latest reasoning model
+      'gpt-5-mini',          // Fast GPT-5
+      'gpt-5-nano',          // Fastest GPT-5
+      'o3',                  // Advanced reasoning
+      'o4-mini',             // Fast reasoning
+      'gpt-4.1',             // Smartest non-reasoning
+      'gpt-4o',              // Previous generation
+      'gpt-4o-mini',         // Previous fast model
+    ],
+    google: [
+      'gemini-2.5-pro',      // Most advanced (FREE)
+      'gemini-2.5-flash',    // Best price-performance (FREE)
+      'gemini-2.5-flash-lite', // Ultra fast (FREE)
+      'gemini-2.0-flash',    // Second gen workhorse
+    ],
+    gemini: [
+      'gemini-2.5-pro',      // Most advanced (FREE)
+      'gemini-2.5-flash',    // Best price-performance (FREE)
+      'gemini-2.5-flash-lite', // Ultra fast (FREE)
+      'gemini-2.0-flash',    // Second gen workhorse
+    ],
+  };
+
+  // Update model when provider changes
+  useEffect(() => {
+    const providerModels = models[provider as keyof typeof models];
+    if (providerModels && !providerModels.includes(modelName)) {
+      setModelName(providerModels[0]);
+    }
+  }, [provider]);
 
   useEffect(() => {
     onUpdate({
@@ -67,12 +100,6 @@ export default function AINodeConfig({ node, onUpdate }: AINodeConfigProps) {
       memoryDBCredentialId,
     });
   }, [credentialId, provider, modelName, systemPrompt, userGoal, temperature, maxTokens, useUserDBForMemory, memoryTableName, memoryDBCredentialId]);
-
-  const models = {
-    openai: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo', 'gpt-4o', 'gpt-4o-mini'],
-    anthropic: ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku', 'claude-3-5-sonnet'],
-    openrouter: ['anthropic/claude-3-opus', 'openai/gpt-4-turbo', 'meta-llama/llama-3-70b'],
-  };
 
   return (
     <div className="space-y-4">
@@ -127,9 +154,8 @@ export default function AINodeConfig({ node, onUpdate }: AINodeConfigProps) {
             onChange={(e) => setProvider(e.target.value)}
             className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
           >
-            <option value="openai">OpenAI</option>
-            <option value="anthropic">Anthropic</option>
-            <option value="openrouter">OpenRouter</option>
+            <option value="openai">OpenAI (GPT-5, o3)</option>
+            <option value="google">Google Gemini 2.5 (FREE)</option>
           </select>
         </div>
 
@@ -185,7 +211,7 @@ export default function AINodeConfig({ node, onUpdate }: AINodeConfigProps) {
           <input
             type="range"
             min="0"
-            max="2"
+            max="1"
             step="0.1"
             value={temperature}
             onChange={(e) => setTemperature(parseFloat(e.target.value))}

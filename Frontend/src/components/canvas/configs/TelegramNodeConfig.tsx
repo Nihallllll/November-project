@@ -99,9 +99,11 @@ export default function TelegramNodeConfig({ node, onUpdate }: TelegramNodeConfi
             Template Variables:
           </p>
           <div className="text-xs text-muted-foreground space-y-1">
-            <p><code className="bg-background px-1 py-0.5 rounded">{'{{input.data}}'}</code> - Access input data</p>
-            <p><code className="bg-background px-1 py-0.5 rounded">{'{{input.result}}'}</code> - Access result from previous node</p>
-            <p><code className="bg-background px-1 py-0.5 rounded">{'{{input.data.price}}'}</code> - Access nested data</p>
+            <p><code className="bg-background px-1 py-0.5 rounded">{'{{input.price}}'}</code> - From Pyth Price node</p>
+            <p><code className="bg-background px-1 py-0.5 rounded">{'{{input.coinId}}'}</code> - From Pyth Price node</p>
+            <p><code className="bg-background px-1 py-0.5 rounded">{'{{input.response}}'}</code> - From AI node</p>
+            <p><code className="bg-background px-1 py-0.5 rounded">{'{{input.status}}'}</code> - From AI node</p>
+            <p className="text-xs italic mt-1">Use nested paths like {'{{input.data.field}}'} for complex data</p>
           </div>
         </div>
       </div>

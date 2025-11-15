@@ -261,9 +261,10 @@ function getChildNodeIds(nodeId: string, connections: any[]): string[] {
 
 /**
  * Check if a node is a merge node
+ * AI nodes automatically merge multiple inputs
  */
 function isMergeNode(node: Node): boolean {
-  return node.type === 'merge';
+  return node.type === 'merge' || node.type === 'ai';
 }
 
 /**
@@ -357,13 +358,15 @@ async function getMergedInputFromParents(
     return null;
   }
   
-  // For merge nodes, collect ALL parent outputs
+  // For merge nodes, collect ALL parent outputs with friendly names
   const merged: Record<string, any> = {};
   
   for (const parentId of parentNodeIds) {
     const parentOutput = nodeOutputs.get(parentId);
     if (parentOutput !== undefined) {
-      merged[parentId] = parentOutput;
+      // Extract node type from ID (e.g., "pyth_price-123" -> "pythPrice")
+      const nodeType = parentId.split('-')[0]?.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase()) || parentId;
+      merged[nodeType] = parentOutput;
     }
   }
   

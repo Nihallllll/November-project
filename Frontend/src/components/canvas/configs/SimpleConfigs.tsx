@@ -1,22 +1,35 @@
+import { useState, useEffect } from 'react';
 import { Node } from 'reactflow';
 
-const createSimpleConfig = (title: string, fields: { name: string; label: string; type: string; placeholder?: string }[]) => {
+const createSimpleConfig = (title: string, fields: { name: string; label: string; type: string; placeholder?: string; optional?: boolean }[]) => {
   return function SimpleConfig({ node, onUpdate }: { node: Node; onUpdate: (data: any) => void }) {
+    const [localData, setLocalData] = useState<Record<string, any>>(node.data || {});
+
+    // Sync local state with node data changes
+    useEffect(() => {
+      setLocalData(node.data || {});
+    }, [node.data]);
+
     const handleChange = (field: string, value: any) => {
-      onUpdate({
-        ...node.data,
+      const newData = {
+        ...localData,
         [field]: value,
-      });
+      };
+      setLocalData(newData);
+      onUpdate(newData);
     };
 
     return (
       <div className="space-y-4">
         {fields.map((field) => (
           <div key={field.name}>
-            <label className="block text-sm font-medium mb-2">{field.label}</label>
+            <label className="block text-sm font-medium mb-2">
+              {field.label}
+              {field.optional && <span className="text-xs text-muted-foreground ml-2">(optional)</span>}
+            </label>
             {field.type === 'textarea' ? (
               <textarea
-                value={node.data[field.name] || ''}
+                value={localData[field.name] ?? ''}
                 onChange={(e) => handleChange(field.name, e.target.value)}
                 placeholder={field.placeholder}
                 rows={4}
@@ -25,8 +38,11 @@ const createSimpleConfig = (title: string, fields: { name: string; label: string
             ) : (
               <input
                 type={field.type}
-                value={node.data[field.name] || ''}
-                onChange={(e) => handleChange(field.name, e.target.value)}
+                value={localData[field.name] ?? ''}
+                onChange={(e) => {
+                  const val = field.type === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value;
+                  handleChange(field.name, val);
+                }}
                 placeholder={field.placeholder}
                 className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               />
@@ -39,13 +55,13 @@ const createSimpleConfig = (title: string, fields: { name: string; label: string
 };
 
 export const PythPriceNodeConfig = createSimpleConfig('Pyth Price', [
-  { name: 'priceFeed', label: 'Price Feed ID', type: 'text', placeholder: 'e.g., SOL/USD' },
+  { name: 'coinId', label: 'Coin ID', type: 'text', placeholder: 'e.g., bitcoin, ethereum, solana' },
 ]);
 
-export const JupiterNodeConfig = createSimpleConfig('Jupiter Swap', [
-  { name: 'inputMint', label: 'Input Token Mint', type: 'text', placeholder: 'Token to swap from' },
-  { name: 'outputMint', label: 'Output Token Mint', type: 'text', placeholder: 'Token to swap to' },
-  { name: 'amount', label: 'Amount', type: 'number', placeholder: '0' },
+export const JupiterNodeConfig = createSimpleConfig('Jupiter Quote', [
+  { name: 'inputMint', label: 'Input Token Address', type: 'text', placeholder: 'e.g., So11111111111111111111111111111111111111112 (SOL)' },
+  { name: 'outputMint', label: 'Output Token Address', type: 'text', placeholder: 'e.g., EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v (USDC)' },
+  { name: 'amount', label: 'Amount (USD)', type: 'number', placeholder: '1', optional: true },
 ]);
 
 export const TelegramNodeConfig = createSimpleConfig('Telegram', [

@@ -32,8 +32,8 @@ enum DBNodeMode {
 }
 
 enum LLMProvider {
-  ANTHROPIC  // Claude
-  OPENAI     // GPT
+  OPENAI     // GPT-4o, o1-preview, o1-mini
+  GOOGLE     // Gemini 2.0, Gemini 1.5
 }
 
 // ========== EXISTING MODELS (KEEP AS IS) ==========

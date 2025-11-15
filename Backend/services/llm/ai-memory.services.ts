@@ -30,16 +30,23 @@ export class AIMemoryService {
       });
     } else {
       // Fallback: Save to AIMemory table (24hr TTL)
-      await prisma.aIMemory.create({
-        data: {
-          aiNodeId,
-          runId,
-          flowId,
-          userId,
-          data,
-          summary: JSON.stringify(data).substring(0, 500),
-        },
-      });
+      // Note: aiNodeId might not exist in AINodeConfig table yet
+      // This is a simple conversation log, not tied to specific config
+      try {
+        await prisma.aIMemory.create({
+          data: {
+            aiNodeId,
+            runId,
+            flowId,
+            userId,
+            data,
+            summary: JSON.stringify(data).substring(0, 500),
+          },
+        });
+      } catch (error: any) {
+        // If aiNodeConfig doesn't exist, skip memory save (non-critical)
+        console.warn(`Failed to save AI memory: ${error.message}`);
+      }
     }
   }
 

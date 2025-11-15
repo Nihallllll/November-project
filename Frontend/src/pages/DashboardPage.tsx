@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Play, Pause, Settings, Trash2, BarChart3, Moon, Sun, Home, Key } from 'lucide-react';
+import { Plus, Play, Pause, Settings, Trash2, Moon, Sun, Home, Key } from 'lucide-react';
 import { flowsApi } from '../api/flows';
 import type { Flow } from '../types/flow.types';
 import { useTheme } from '../components/ThemeProvider';
 import CredentialManager from '../components/canvas/CredentialManager';
 import UserIndicator from '../components/UserIndicator';
+import { toast } from 'sonner';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -47,6 +48,22 @@ export default function DashboardPage() {
     }
   };
 
+  const handleToggleActive = async (flowId: string) => {
+    try {
+      console.log('Toggling flow status for:', flowId);
+      const updatedFlow = await flowsApi.toggleActive(flowId);
+      console.log('Updated flow:', updatedFlow);
+      setFlows(flows.map(f => f.id === flowId ? updatedFlow : f));
+      const status = updatedFlow.status === 'ACTIVE' ? 'activated' : 'paused';
+      toast.success(`Flow ${status} successfully!`);
+    } catch (error: any) {
+      console.error('Failed to toggle flow status:', error);
+      console.error('Error response:', error.response?.data);
+      const errorMsg = error.response?.data?.error || error.message || 'Failed to toggle flow status';
+      toast.error(errorMsg);
+    }
+  };
+
   const handleDeleteFlow = async (flowId: string) => {
     if (!confirm('Are you sure you want to delete this flow?')) return;
     
@@ -60,7 +77,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" style={{ zoom: 0.9 }}>
       {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
@@ -139,11 +156,11 @@ export default function DashboardPage() {
                     </p>
                   </div>
                   <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    flow.isActive 
+                    flow.status === 'ACTIVE' || flow.isActive
                       ? 'bg-green-500/10 text-green-500' 
                       : 'bg-gray-500/10 text-gray-500'
                   }`}>
-                    {flow.isActive ? '● Active' : '○ Paused'}
+                    {flow.status === 'ACTIVE' || flow.isActive ? '● Active' : '○ Paused'}
                   </div>
                 </div>
 
@@ -161,6 +178,27 @@ export default function DashboardPage() {
                   >
                     <Play className="w-3.5 h-3.5" />
                     Run
+                  </button>
+                  <button
+                    onClick={() => handleToggleActive(flow.id)}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded hover:opacity-80 transition-colors text-sm font-medium ${
+                      flow.status === 'ACTIVE' || flow.isActive
+                        ? 'bg-orange-500/10 text-orange-500 hover:bg-orange-500/20'
+                        : 'bg-green-500/10 text-green-500 hover:bg-green-500/20'
+                    }`}
+                    title={flow.status === 'ACTIVE' || flow.isActive ? 'Pause flow' : 'Resume flow'}
+                  >
+                    {flow.status === 'ACTIVE' || flow.isActive ? (
+                      <>
+                        <Pause className="w-3.5 h-3.5" />
+                        Pause
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-3.5 h-3.5" />
+                        Resume
+                      </>
+                    )}
                   </button>
                   <button
                     onClick={() => handleEditFlow(flow.id)}

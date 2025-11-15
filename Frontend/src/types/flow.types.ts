@@ -22,6 +22,7 @@ export interface Flow {
   description?: string;
   json: FlowJson;
   isActive: boolean;
+  status?: 'ACTIVE' | 'INACTIVE' | 'DRAFT';
   isScheduled: boolean;
   schedule?: string;
   userId: string;
@@ -32,7 +33,7 @@ export interface Flow {
 export interface CreateFlowRequest {
   name: string;
   description?: string;
-  json: FlowJson;
+  flowJson: FlowJson;
   isScheduled?: boolean;
   schedule?: string;
   isActive?: boolean;

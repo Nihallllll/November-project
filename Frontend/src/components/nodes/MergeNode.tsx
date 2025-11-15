@@ -11,26 +11,13 @@ export default memo(({ data, selected }: NodeProps) => {
         ${selected ? 'ring-4 ring-gray-300 scale-105' : 'hover:scale-102'}
       `}
     >
+      {/* Single input handle that accepts multiple connections */}
       <Handle
         type="target"
         position={Position.Left}
-        id="input1"
-        style={{ top: '30%' }}
-        className="w-3 h-3 bg-gray-800 border-2 border-white"
-      />
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="input2"
+        id="input"
         style={{ top: '50%' }}
-        className="w-3 h-3 bg-gray-800 border-2 border-white"
-      />
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="input3"
-        style={{ top: '70%' }}
-        className="w-3 h-3 bg-gray-800 border-2 border-white"
+        className="w-4 h-4 bg-gray-800 border-2 border-white"
       />
 
       <div className="flex items-center gap-3">
@@ -39,14 +26,15 @@ export default memo(({ data, selected }: NodeProps) => {
         </div>
         <div>
           <div className="font-semibold">Merge</div>
-          <div className="text-xs opacity-75">Wait for all inputs</div>
+          <div className="text-xs opacity-75">Combine all inputs</div>
         </div>
       </div>
 
       <Handle
         type="source"
         position={Position.Right}
-        className="w-3 h-3 bg-gray-800 border-2 border-white"
+        id="output"
+        className="w-4 h-4 bg-gray-800 border-2 border-white"
       />
     </div>
   );

@@ -21,6 +21,17 @@ import { mergeNode } from "./nodes/merge.node";
 // This is where you register all your node types
 // When you create a new node, add it here!
 
+// Schedule node is a trigger-only node (no-op during execution)
+const scheduleNode: NodeHandler = {
+  async execute(nodeData: any, context: any) {
+    // Schedule nodes trigger the flow but don't execute anything themselves
+    return {
+      success: true,
+      data: { message: 'Schedule node triggered the flow' },
+    };
+  },
+};
+
 const NODE_REGISTRY: Record<string, NodeHandler> = {
   "http_request": httpRequestNode,
   "condition": conditionNode,
@@ -39,6 +50,7 @@ const NODE_REGISTRY: Record<string, NodeHandler> = {
   "ai": aiNode,
   "helius_indexer": heliusIndexerNode,
   "merge": mergeNode,  // ✅ Merge node for combining multiple inputs
+  "schedule": scheduleNode,  // ✅ Schedule trigger node
 };
 
 // ========== LOOKUP FUNCTION ==========

@@ -12,6 +12,14 @@ export class FlowController {
       // ✅ FIXED: Get userId from auth middleware
       const ownerId = (req as any).userId;
 
+      console.log('📝 Creating flow:', {
+        name,
+        ownerId,
+        nodeCount: flowJson?.nodes?.length,
+        connectionCount: flowJson?.connections?.length,
+        hasSchedule: !!schedule
+      });
+
       if (!ownerId) {
         return res.status(401).json({
           success: false,
@@ -21,6 +29,7 @@ export class FlowController {
 
       // Validate input
       if (!name || !flowJson) {
+        console.error('❌ Validation failed: Missing name or flowJson');
         return res.status(400).json({
           success: false,
           error: "Name and flowJson are required"
@@ -28,6 +37,7 @@ export class FlowController {
       }
 
       if (!flowJson.nodes || flowJson.nodes.length === 0) {
+        console.error('❌ Validation failed: No nodes in flow');
         return res.status(400).json({
           success: false,
           error: "Flow must have at least one node"
@@ -35,6 +45,7 @@ export class FlowController {
       }
 
       const flow = await FlowRepository.create(name, flowJson, ownerId, schedule);
+      console.log('✅ Flow created successfully:', flow.id);
 
       res.status(201).json({
         success: true,
@@ -127,6 +138,14 @@ export class FlowController {
       const userId = (req as any).userId;
       const { name, flowJson } = req.body;
 
+      console.log('📝 Updating flow:', {
+        flowId,
+        userId,
+        name,
+        nodeCount: flowJson?.nodes?.length,
+        connectionCount: flowJson?.connections?.length
+      });
+
       if (!userId) {
         return res.status(401).json({
           success: false,
@@ -138,6 +157,7 @@ export class FlowController {
       const existingFlow = await FlowRepository.findById(flowId!);
 
       if (!existingFlow) {
+        console.error('❌ Flow not found:', flowId);
         return res.status(404).json({
           success: false,
           error: "Flow not found"
@@ -145,6 +165,7 @@ export class FlowController {
       }
 
       if (existingFlow.userId !== userId) {
+        console.error('❌ Access denied: User', userId, 'does not own flow', flowId);
         return res.status(403).json({
           success: false,
           error: "Access denied: You do not own this flow"
@@ -152,6 +173,7 @@ export class FlowController {
       }
 
       const flow = await FlowRepository.update(flowId!, name, flowJson);
+      console.log('✅ Flow updated successfully:', flowId);
 
       res.json({
         success: true,
@@ -159,6 +181,61 @@ export class FlowController {
       });
     } catch (error: any) {
       console.error("Error updating flow:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+
+  // ========== PATCH /api/v1/flows/:id/toggle - Toggle flow active status ==========
+  static async toggleActive(req: Request, res: Response) {
+    try {
+      const flowId = req.params.id;
+      const userId = (req as any).userId;
+
+      console.log(`🔄 Toggle flow request: flowId=${flowId}, userId=${userId}`);
+
+      if (!userId) {
+        console.log('❌ No userId found');
+        return res.status(401).json({
+          success: false,
+          error: "Unauthorized"
+        });
+      }
+
+      // Check ownership
+      const flow = await FlowRepository.findById(flowId!);
+      console.log(`📊 Flow found:`, flow ? `${flow.name} (status: ${flow.status})` : 'null');
+
+      if (!flow) {
+        return res.status(404).json({
+          success: false,
+          error: "Flow not found"
+        });
+      }
+
+      if (flow.userId !== userId) {
+        console.log(`❌ Access denied: flow.userId=${flow.userId}, userId=${userId}`);
+        return res.status(403).json({
+          success: false,
+          error: "Access denied: You do not own this flow"
+        });
+      }
+
+      // Toggle status
+      const newStatus = flow.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+      console.log(`🔄 Toggling from ${flow.status} to ${newStatus}`);
+      
+      const updatedFlow = await FlowRepository.updateStatus(flowId!, newStatus);
+      console.log(`✅ Flow status toggled successfully:`, updatedFlow);
+
+      res.json({
+        success: true,
+        data: updatedFlow
+      });
+    } catch (error: any) {
+      console.error("❌ Error toggling flow status:", error);
       res.status(500).json({
         success: false,
         error: error.message
@@ -242,7 +319,7 @@ export class FlowController {
         });
       }
 
-      const run = await ExecutionService.triggerFlow(flowId, input, userId);
+      const run = await ExecutionService.triggerFlow(flowId, userId, input);
 
       res.json({
         success: true,

@@ -17,6 +17,9 @@ router.get("/flows/:id", FlowController.getFlow);
 // Update flow
 router.put("/flows/:id", FlowController.updateFlow);
 
+// Toggle flow active status
+router.patch("/flows/:id/toggle", FlowController.toggleActive);
+
 // Delete flow
 router.delete("/flows/:id", FlowController.deleteFlow);
 

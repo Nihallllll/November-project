@@ -1,9 +1,9 @@
-import { memo } from 'react';
+  import { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Brain, Zap, Database } from 'lucide-react';
 
 export default memo(({ data, selected }: NodeProps) => {
-  const model = data.model || 'GPT-4';
+  const model = data.model ;
   const hasMemory = data.memory || false;
   
   return (

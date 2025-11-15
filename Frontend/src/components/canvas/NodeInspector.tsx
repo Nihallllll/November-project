@@ -82,25 +82,25 @@ export default function NodeInspector({ selectedNode, onClose, onUpdate }: NodeI
   };
 
   return (
-    <div className="w-80 glass border-l border-border/50 flex flex-col h-full flex-shrink-0">
+    <div className="w-96 glass border-l border-border/50 flex flex-col h-full flex-shrink-0 overflow-hidden">
       {/* Header */}
-      <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-border/50">
+      <div className="flex-shrink-0 flex items-center justify-between p-5 border-b border-border/50">
         <div>
-          <h3 className="font-semibold text-foreground">Node Configuration</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <h3 className="font-semibold text-foreground text-base">Node Configuration</h3>
+          <p className="text-sm text-muted-foreground mt-1">
             {selectedNode.type?.replace(/_/g, ' ').toUpperCase()}
           </p>
         </div>
         <button
           onClick={onClose}
-          className="p-1 hover:bg-primary/10 rounded transition-colors"
+          className="p-1.5 hover:bg-primary/10 rounded transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
       </div>
 
       {/* Configuration Form - Scrollable */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-5">
         {renderConfig()}
       </div>
     </div>

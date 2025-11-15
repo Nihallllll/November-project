@@ -40,11 +40,14 @@ export const telegramNode: NodeHandler = {
       }
 
       // ========== TEMPLATE REPLACEMENT ==========
+      context.logger(`telegram: input data keys: ${Object.keys(input || {}).join(', ')}`);
+      context.logger(`telegram: template: ${templateMessage}`);
+      
       let finalMessage = templateMessage;
       if (input && typeof input === "object") {
         finalMessage = templateMessage.replace(
-          /\{\{input\.([\w.]+)\}\}/g, // ← Support nested paths!
-          (match: any, path: any) => {
+          /\{\{input\.([\w.]+)\}\}/g,
+          (match: string, path: string) => {
             // Split "data.outAmount" into ["data", "outAmount"]
             const keys = path.split(".");
             let value: any = input;
@@ -55,10 +58,25 @@ export const telegramNode: NodeHandler = {
               if (value === undefined) break;
             }
 
-            return value !== undefined ? String(value) : match;
+            context.logger(`telegram: replacing ${match} with: ${value !== undefined ? (typeof value === 'object' ? '[object]' : value) : '[not found]'}`);
+
+            // Handle different types of values
+            if (value === undefined || value === null) {
+              return match; // Keep original if not found
+            }
+            
+            // Format objects and arrays as JSON
+            if (typeof value === 'object') {
+              return JSON.stringify(value, null, 2);
+            }
+            
+            // Convert to string
+            return String(value);
           }
         );
       }
+      
+      context.logger(`telegram: final message: ${finalMessage.substring(0, 100)}...`);
 
       //pending transaction message
       if (

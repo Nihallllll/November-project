@@ -20,7 +20,7 @@ export const credentialsApi = {
    * List all credentials for a user
    */
   list: async (userId: string): Promise<Credential[]> => {
-    const response = await apiClient.get(`/users/${userId}/credentials`);
+    const response = await apiClient.get(`/api/v1/users/${userId}/credentials`);
     return response.data.data;
   },
 
@@ -28,7 +28,7 @@ export const credentialsApi = {
    * Get a single credential
    */
   get: async (userId: string, credentialId: string): Promise<Credential> => {
-    const response = await apiClient.get(`/users/${userId}/credentials/${credentialId}`);
+    const response = await apiClient.get(`/api/v1/users/${userId}/credentials/${credentialId}`);
     return response.data.data;
   },
 
@@ -36,7 +36,7 @@ export const credentialsApi = {
    * Create a new credential
    */
   create: async (userId: string, data: CreateCredentialData): Promise<Credential> => {
-    const response = await apiClient.post(`/users/${userId}/credentials`, data);
+    const response = await apiClient.post(`/api/v1/users/${userId}/credentials`, data);
     return response.data.data;
   },
 
@@ -44,6 +44,6 @@ export const credentialsApi = {
    * Delete a credential
    */
   delete: async (userId: string, credentialId: string): Promise<void> => {
-    await apiClient.delete(`/users/${userId}/credentials/${credentialId}`);
+    await apiClient.delete(`/api/v1/users/${userId}/credentials/${credentialId}`);
   },
 };

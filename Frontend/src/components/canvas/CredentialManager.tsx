@@ -15,9 +15,8 @@ interface CredentialFormData {
 }
 
 const credentialTypes = [
-  { value: 'openai', label: 'OpenAI API', icon: Brain, fields: ['apiKey'] },
-  { value: 'anthropic', label: 'Anthropic (Claude)', icon: Brain, fields: ['apiKey'] },
-  { value: 'openrouter', label: 'OpenRouter', icon: Brain, fields: ['apiKey'] },
+    { value: 'openai', label: 'OpenAI (GPT-5, o3)', icon: Brain, fields: ['apiKey'] },
+    { value: 'google', label: 'Google Gemini 2.5 (FREE)', icon: Brain, fields: ['apiKey'] },
   { value: 'telegram', label: 'Telegram Bot', icon: MessageSquare, fields: ['token', 'chatId'] },
   { value: 'gmail-oauth2', label: 'Gmail OAuth2', icon: Mail, fields: ['clientId', 'clientSecret', 'refreshToken', 'from'] },
   { value: 'resend', label: 'Resend Email', icon: Mail, fields: ['apiKey', 'from'] },
@@ -63,7 +62,21 @@ export default function CredentialManager({ userId, onClose }: CredentialManager
       return;
     }
 
+    // Validate that all required fields in data are filled
+    const emptyFields = Object.entries(formData.data).filter(([_, value]) => !value);
+    if (emptyFields.length > 0) {
+      toast.error('Please fill in all credential fields');
+      return;
+    }
+
     try {
+      console.log('Creating credential:', {
+        userId,
+        name: formData.name,
+        type: formData.type,
+        dataKeys: Object.keys(formData.data)
+      });
+
       await credentialsApi.create(userId, {
         name: formData.name,
         type: formData.type,
@@ -76,7 +89,10 @@ export default function CredentialManager({ userId, onClose }: CredentialManager
       loadCredentials();
     } catch (error: any) {
       console.error('Failed to create credential:', error);
-      toast.error(error.response?.data?.error || 'Failed to save credential');
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      const errorMsg = error.response?.data?.error || error.message || 'Failed to save credential';
+      toast.error(errorMsg);
     }
   };
 
