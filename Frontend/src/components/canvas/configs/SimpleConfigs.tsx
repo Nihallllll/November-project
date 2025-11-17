@@ -100,10 +100,7 @@ export const WatchWalletNodeConfig = createSimpleConfig('Watch Wallet', [
   { name: 'interval', label: 'Check Interval (seconds)', type: 'number', placeholder: '60' },
 ]);
 
-export const SolanaRPCNodeConfig = createSimpleConfig('Solana RPC', [
-  { name: 'method', label: 'RPC Method', type: 'text', placeholder: 'getAccountInfo, getBalance, etc.' },
-  { name: 'params', label: 'Parameters (JSON)', type: 'textarea', placeholder: '["address"]' },
-]);
+// Solana RPC config moved to dedicated file (SolanaRPCNodeConfig.tsx)
 
 export const TokenProgramNodeConfig = createSimpleConfig('Token Program', [
   { name: 'instruction', label: 'Instruction', type: 'text', placeholder: 'transfer, mint, burn' },
@@ -144,7 +141,6 @@ export default {
   WebhookNodeConfig,
   HeliusIndexerNodeConfig,
   WatchWalletNodeConfig,
-  SolanaRPCNodeConfig,
   TokenProgramNodeConfig,
   DelayNodeConfig,
   LogNodeConfig,

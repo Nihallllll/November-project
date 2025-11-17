@@ -85,6 +85,7 @@ export const aiNode: NodeHandler = {
 
       const previousMemories = await AIMemoryService.getMemory(
         context.currentNodeId,
+        context.flowId,
         memoryConfig
       );
 
@@ -111,7 +112,22 @@ export const aiNode: NodeHandler = {
         response = await llm.invoke(messages);
       }
 
-      const responseText = response.content as string;
+      // Extract response text - handle both string and array content
+      let responseText: string;
+      if (typeof response.content === 'string') {
+        responseText = response.content;
+      } else if (Array.isArray(response.content)) {
+        // Some models return content as array of objects
+        responseText = response.content
+          .map((item: any) => item.text || item.content || JSON.stringify(item))
+          .join('\n');
+      } else if (typeof response.content === 'object' && response.content !== null) {
+        // Handle object content
+        responseText = JSON.stringify(response.content);
+      } else {
+        responseText = String(response.content || '');
+      }
+
       const toolCalls = response.tool_calls || [];
 
       // 7. Execute tool calls if any
@@ -152,9 +168,9 @@ export const aiNode: NodeHandler = {
       // 9. Save conversation to memory (non-blocking - don't fail if memory save fails)
       try {
         await AIMemoryService.saveMemory(
-          context.currentNodeId,
-          context.runId,
+          context.currentNodeId,  // nodeId from flow
           context.flowId,
+          context.runId,
           context.userId,
           {
             conversation: [
@@ -168,7 +184,16 @@ export const aiNode: NodeHandler = {
             },
             finalResponse: responseText,
           },
-          memoryConfig
+          memoryConfig,
+          {
+            provider: providerLower as any,
+            credentialId,
+            modelName: model,
+            systemPrompt: systemPrompt || '',
+            userGoal: userGoal || '',
+            temperature,
+            maxTokens,
+          }
         );
         context.logger(`ai: memory saved successfully`);
       } catch (memoryError: any) {
@@ -177,9 +202,16 @@ export const aiNode: NodeHandler = {
       }
 
       // 10. Return final result (always return response, even if memory fails)
+      // Ensure response is always a string (important for Telegram node)
+      const finalResponse = typeof responseText === 'string' 
+        ? responseText 
+        : JSON.stringify(responseText);
+
+      context.logger(`ai: returning response (type: ${typeof finalResponse}, length: ${finalResponse.length})`);
+
       return {
         status: 'success',
-        response: responseText,
+        response: finalResponse,
         provider: providerLower,
         model,
         toolsUsed: toolCalls.length,

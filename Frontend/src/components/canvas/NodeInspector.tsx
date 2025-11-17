@@ -7,6 +7,7 @@ import ScheduleNodeConfig from './configs/ScheduleNodeConfig';
 import TelegramNodeConfig from './configs/TelegramNodeConfig';
 import EmailNodeConfig from './configs/EmailNodeConfig';
 import PostgresDBNodeConfig from './configs/PostgresDBNodeConfig';
+import { SolanaRPCNodeConfig } from './configs/SolanaRPCNodeConfig';
 import {
   PythPriceNodeConfig,
   JupiterNodeConfig,
@@ -14,7 +15,6 @@ import {
   WebhookNodeConfig,
   HeliusIndexerNodeConfig,
   WatchWalletNodeConfig,
-  SolanaRPCNodeConfig,
   TokenProgramNodeConfig,
   DelayNodeConfig,
   LogNodeConfig,

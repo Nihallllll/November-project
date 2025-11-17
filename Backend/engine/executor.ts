@@ -29,7 +29,7 @@ executeFlow(runId: string, userId: string) {
     console.log(`📋 Flow has ${flowJson?.nodes.length} nodes`);
 
     // 3. Execute all nodes
-    const result = await executeNodes(flowJson, runId , userId);
+    const result = await executeNodes(flowJson, runId, userId, run.flow.id);
 
     // 4. Mark as completed
     await RunRepositories.updateStatus(runId, "COMPLETED", result);
@@ -50,7 +50,7 @@ executeFlow(runId: string, userId: string) {
   }
 }
 
-async function executeNodes(flowJson: FlowJson, runId: string , userId : string) {
+async function executeNodes(flowJson: FlowJson, runId: string, userId: string, flowId: string) {
   console.log("📝 Executing nodes with graph-based execution...");
 
   // ========== VALIDATION: Check flowJson structure ==========
@@ -144,7 +144,7 @@ async function executeNodes(flowJson: FlowJson, runId: string , userId : string)
     // ========== EXECUTE NODE ==========
     console.log(`  ⚙️ Executing: ${node.type} (${node.id})`);
     
-    const nodeOutput = await executeNode(node, runId, userId, input);
+    const nodeOutput = await executeNode(node, runId, userId, flowId, input);
     
     // Store output
     nodeOutputs.set(node.id, nodeOutput);
@@ -170,7 +170,7 @@ async function executeNodes(flowJson: FlowJson, runId: string , userId : string)
   };
 }
 
-async function executeNode(node: Node, runId: string,userId : string, input?: any) {
+async function executeNode(node: Node, runId: string, userId: string, flowId: string, input?: any) {
   console.log(`  ⚙️ Executing node: ${node.type} (${node.id})`);
 
   try {
@@ -180,9 +180,10 @@ async function executeNode(node: Node, runId: string,userId : string, input?: an
     // Create execution context
     const context = {
       runId,
-      flowId: "unknown", // We can get this from run if needed
-      userId: userId,
-      nodeId : node.id ,
+      flowId,
+      userId,
+      currentNodeId: node.id,  // Used by AI node for memory
+      nodeId: node.id,         // Kept for backward compatibility
       logger: (msg: string) => console.log(`    💬 ${msg}`),
       saveNodeOutput: async (nodeId: string, output: any) => {
         await RunRepositories.saveNodeOutput(runId, nodeId, output);

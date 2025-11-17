@@ -54,17 +54,24 @@ export const mergeNode: NodeHandler = {
       }
     }
 
+    // 🎯 Provide clean structured output for AI consumption
     const result = {
-      merged: true,
-      sources,
-      data: input,       // Preserve original structure with node type keys
-      flattened,         // Simplified flat structure (all fields merged)
-      // Add individual sources for easy access
-      ...input,          // Spread all parent outputs at root level
+      // Primary clean data (best for AI parsing)
+      ...flattened,
+      
+      // Metadata for debugging
+      _metadata: {
+        merged: true,
+        sources,
+        timestamp: new Date().toISOString(),
+      },
+      
+      // Grouped by source (alternative access pattern)
+      _bySource: input,
     };
 
     context.logger(`   ✅ Merged ${sources.length} sources successfully`);
-    context.logger(`   📦 Available data: ${Object.keys(flattened).join(", ")}`);
+    context.logger(`   📦 Available fields: ${Object.keys(flattened).join(", ")}`);
 
     return result;
   },

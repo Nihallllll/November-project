@@ -23,6 +23,7 @@ const credentialTypes = [
   { value: 'sendgrid', label: 'SendGrid', icon: Mail, fields: ['apiKey', 'from'] },
   { value: 'smtp', label: 'SMTP Server', icon: Mail, fields: ['host', 'port', 'user', 'password', 'from'] },
   { value: 'postgres_db', label: 'PostgreSQL Database', icon: Database, fields: ['connectionUrl'] },
+  { value: 'solana_rpc', label: 'Solana RPC Endpoint', icon: Key, fields: ['rpcUrl'] },
 ];
 
 export default function CredentialManager({ userId, onClose }: CredentialManagerProps) {
