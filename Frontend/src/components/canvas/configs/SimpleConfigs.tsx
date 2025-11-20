@@ -90,10 +90,7 @@ export const WebhookNodeConfig = createSimpleConfig('Webhook', [
   { name: 'path', label: 'Webhook Path', type: 'text', placeholder: '/webhook/my-flow' },
 ]);
 
-export const HeliusIndexerNodeConfig = createSimpleConfig('Helius Indexer', [
-  { name: 'accountAddress', label: 'Account Address', type: 'text', placeholder: 'Solana account to watch' },
-  { name: 'transactionTypes', label: 'Transaction Types', type: 'text', placeholder: 'ANY, NFT_SALE, etc.' },
-]);
+// Helius Indexer config moved to dedicated file (HeliusIndexerNodeConfig.tsx)
 
 export const WatchWalletNodeConfig = createSimpleConfig('Watch Wallet', [
   { name: 'walletAddress', label: 'Wallet Address', type: 'text', placeholder: 'Solana wallet address' },
@@ -139,7 +136,6 @@ export default {
   PostgresDBNodeConfig,
   HTTPRequestNodeConfig,
   WebhookNodeConfig,
-  HeliusIndexerNodeConfig,
   WatchWalletNodeConfig,
   TokenProgramNodeConfig,
   DelayNodeConfig,

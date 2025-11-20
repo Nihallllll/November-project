@@ -8,12 +8,15 @@ import TelegramNodeConfig from './configs/TelegramNodeConfig';
 import EmailNodeConfig from './configs/EmailNodeConfig';
 import PostgresDBNodeConfig from './configs/PostgresDBNodeConfig';
 import { SolanaRPCNodeConfig } from './configs/SolanaRPCNodeConfig';
+import { HeliusIndexerNodeConfig } from './configs/HeliusIndexerNodeConfig';
+import MultisigNodeConfig from './configs/MultisigNodeConfig';
+import VotingNodeConfig from './configs/VotingNodeConfig';
+import EscrowNodeConfig from './configs/EscrowNodeConfig';
 import {
   PythPriceNodeConfig,
   JupiterNodeConfig,
   HTTPRequestNodeConfig,
   WebhookNodeConfig,
-  HeliusIndexerNodeConfig,
   WatchWalletNodeConfig,
   TokenProgramNodeConfig,
   DelayNodeConfig,
@@ -72,6 +75,12 @@ export default function NodeInspector({ selectedNode, onClose, onUpdate }: NodeI
         return <DelayNodeConfig node={selectedNode} onUpdate={handleUpdate} />;
       case 'log':
         return <LogNodeConfig node={selectedNode} onUpdate={handleUpdate} />;
+      case 'multisig':
+        return <MultisigNodeConfig node={selectedNode} onUpdate={handleUpdate} />;
+      case 'voting':
+        return <VotingNodeConfig node={selectedNode} onUpdate={handleUpdate} />;
+      case 'escrow':
+        return <EscrowNodeConfig node={selectedNode} onUpdate={handleUpdate} />;
       default:
         return (
           <div className="text-center text-muted-foreground py-8">
