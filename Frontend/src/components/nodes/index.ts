@@ -16,6 +16,9 @@ import TokenProgramNode from './TokenProgramNode';
 import DelayNode from './DelayNode';
 import LogNode from './LogNode';
 import ScheduleNode from './ScheduleNode';
+import MultisigNode from './MultisigNode';
+import VotingNode from './VotingNode';
+import EscrowNode from './EscrowNode';
 
 export const nodeTypes = {
   ai: AINode,
@@ -36,4 +39,7 @@ export const nodeTypes = {
   delay: DelayNode,
   log: LogNode,
   schedule: ScheduleNode,
+  multisig: MultisigNode,
+  voting: VotingNode,
+  escrow: EscrowNode,
 };

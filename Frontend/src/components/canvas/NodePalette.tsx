@@ -40,6 +40,14 @@ const nodeCategories: NodeCategory[] = [
     ],
   },
   {
+    name: 'Smart Contracts',
+    nodes: [
+      { type: 'multisig', label: 'Multisig', icon: '🔐', color: 'bg-cyan-500' },
+      { type: 'voting', label: 'Voting', icon: '🗳️', color: 'bg-cyan-600' },
+      { type: 'escrow', label: 'Escrow', icon: '🤝', color: 'bg-cyan-700' },
+    ],
+  },
+  {
     name: 'Data',
     nodes: [
       { type: 'postgres_db', label: 'Postgres DB', icon: '🐘', color: 'bg-cyan-500' },

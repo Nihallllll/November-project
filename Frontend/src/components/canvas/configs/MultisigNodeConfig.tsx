@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Node } from 'reactflow';
-import { Plus, X, AlertCircle } from 'lucide-react';
+import { Plus, X, AlertCircle, Copy, CheckCircle2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import api from '../../../api/client';
 
 interface MultisigNodeConfigProps {
   node: Node;
@@ -9,6 +12,8 @@ interface MultisigNodeConfigProps {
 }
 
 export default function MultisigNodeConfig({ node, onUpdate }: MultisigNodeConfigProps) {
+  const { publicKey, connected } = useWallet();
+  
   const [action, setAction] = useState(node.data.action || 'create');
   const [owners, setOwners] = useState<string[]>(node.data.owners || ['']);
   const [threshold, setThreshold] = useState(node.data.threshold || 1);
@@ -24,6 +29,14 @@ export default function MultisigNodeConfig({ node, onUpdate }: MultisigNodeConfi
     node.data.notificationMessage || 'Multisig proposal {{multisigAddress}} has reached threshold!'
   );
 
+  // Proposal creation states
+  const [proposalUrl, setProposalUrl] = useState(node.data.proposalUrl || '');
+  const [proposalId, setProposalId] = useState(node.data.proposalId || '');
+  const [notifyEmail, setNotifyEmail] = useState('');
+  const [notifyTelegram, setNotifyTelegram] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [copied, setCopied] = useState(false);
+
   useEffect(() => {
     onUpdate({
       ...node.data,
@@ -35,9 +48,77 @@ export default function MultisigNodeConfig({ node, onUpdate }: MultisigNodeConfi
       multisigAddress: action !== 'create' ? multisigAddress : undefined,
       notifyOnThreshold,
       notificationMessage,
+      proposalUrl,
+      proposalId,
       userId: localStorage.getItem('user_id') || 'demo-user',
     });
-  }, [action, owners, threshold, description, expiresIn, multisigAddress, notifyOnThreshold, notificationMessage]);
+  }, [action, owners, threshold, description, expiresIn, multisigAddress, notifyOnThreshold, notificationMessage, proposalUrl, proposalId]);
+
+  const validateFields = (): boolean => {
+    const validOwners = owners.filter(o => o.trim());
+    if (validOwners.length < 2) {
+      toast.error('At least 2 owners required');
+      return false;
+    }
+    if (threshold < 1 || threshold > validOwners.length) {
+      toast.error('Invalid threshold value');
+      return false;
+    }
+    if (!description.trim()) {
+      toast.error('Description is required');
+      return false;
+    }
+    return true;
+  };
+
+  const handleCreateProposal = async () => {
+    if (!connected || !publicKey) {
+      toast.error('Please connect your wallet first');
+      return;
+    }
+
+    if (!validateFields()) {
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const validOwners = owners.filter(o => o.trim());
+      const response = await api.post('/proposals/multisig', {
+        flowId: node.id,
+        creator: publicKey.toString(),
+        owners: validOwners,
+        threshold,
+        description,
+        expiresIn,
+        notifyEmail: notifyEmail.trim() || undefined,
+        notifyTelegram: notifyTelegram.trim() || undefined,
+      });
+
+      const { proposal } = response.data;
+      setProposalUrl(proposal.signingUrl);
+      setProposalId(proposal.id);
+      
+      toast.success('Multisig proposal created successfully!');
+      if (notifyEmail.trim() || notifyTelegram.trim()) {
+        toast.info('Notifications sent to recipients');
+      }
+    } catch (error: any) {
+      console.error('Failed to create proposal:', error);
+      toast.error(error.response?.data?.error || 'Failed to create proposal');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleCopyUrl = () => {
+    if (proposalUrl) {
+      navigator.clipboard.writeText(proposalUrl);
+      setCopied(true);
+      toast.success('URL copied to clipboard!');
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   const addOwner = () => {
     if (owners.length >= 10) {
@@ -70,6 +151,7 @@ export default function MultisigNodeConfig({ node, onUpdate }: MultisigNodeConfi
           value={action}
           onChange={(e) => setAction(e.target.value)}
           className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+          disabled={!!proposalUrl}
         >
           <option value="create">Create New Multisig</option>
           <option value="approve">Approve Proposal</option>
@@ -80,6 +162,64 @@ export default function MultisigNodeConfig({ node, onUpdate }: MultisigNodeConfi
 
       {action === 'create' ? (
         <>
+          {/* Wallet Connection (only show if no proposal created yet) */}
+          {!proposalUrl && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+              <p className="text-sm font-medium text-amber-600 dark:text-amber-400 mb-2">
+                Connect Wallet to Create Proposal
+              </p>
+              <WalletMultiButton className="!bg-primary !text-primary-foreground hover:!bg-primary/90 !rounded-lg !px-4 !py-2 !text-sm" />
+            </div>
+          )}
+
+          {/* Show URL if proposal created */}
+          {proposalUrl && (
+            <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                  Proposal Created Successfully!
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium mb-2 text-muted-foreground">
+                  Signing URL (Share with owners)
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={proposalUrl}
+                    readOnly
+                    className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm font-mono"
+                  />
+                  <button
+                    onClick={handleCopyUrl}
+                    className="p-2 border border-border rounded-lg hover:bg-accent transition-colors"
+                    title="Copy URL"
+                  >
+                    {copied ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => window.open(proposalUrl, '_blank')}
+                    className="p-2 border border-border rounded-lg hover:bg-accent transition-colors"
+                    title="Open in new tab"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                💡 Share this URL with all owners to collect signatures. Each owner needs to approve/reject using their wallet.
+              </p>
+            </div>
+          )}
+
           {/* Owners List */}
           <div>
             <label className="block text-sm font-medium mb-2">
@@ -94,12 +234,14 @@ export default function MultisigNodeConfig({ node, onUpdate }: MultisigNodeConfi
                     value={owner}
                     onChange={(e) => updateOwner(index, e.target.value)}
                     placeholder="e.g., 8FqG8...9kL2x"
-                    className="flex-1 px-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary font-mono text-sm"
+                    disabled={!!proposalUrl}
+                    className="flex-1 px-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary font-mono text-sm disabled:opacity-50"
                   />
                   {owners.length > 1 && (
                     <button
                       onClick={() => removeOwner(index)}
-                      className="p-2 border border-border rounded-lg hover:bg-destructive/10 hover:border-destructive transition-colors"
+                      disabled={!!proposalUrl}
+                      className="p-2 border border-border rounded-lg hover:bg-destructive/10 hover:border-destructive transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Remove owner"
                     >
                       <X className="w-4 h-4 text-destructive" />
@@ -107,7 +249,7 @@ export default function MultisigNodeConfig({ node, onUpdate }: MultisigNodeConfi
                   )}
                 </div>
               ))}
-              {owners.length < 10 && (
+              {owners.length < 10 && !proposalUrl && (
                 <button
                   onClick={addOwner}
                   className="w-full px-3 py-2 border border-dashed border-border rounded-lg hover:bg-accent transition-colors flex items-center justify-center gap-2"
@@ -134,7 +276,8 @@ export default function MultisigNodeConfig({ node, onUpdate }: MultisigNodeConfi
                 max={owners.filter(o => o.trim()).length || 1}
                 value={threshold}
                 onChange={(e) => setThreshold(Number(e.target.value))}
-                className="w-20 px-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-center"
+                disabled={!!proposalUrl}
+                className="w-20 px-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-center disabled:opacity-50"
               />
               <span className="text-sm text-muted-foreground">
                 of {owners.filter(o => o.trim()).length || 1} owners
@@ -160,7 +303,8 @@ export default function MultisigNodeConfig({ node, onUpdate }: MultisigNodeConfi
               placeholder="Describe what this multisig proposal is for..."
               rows={4}
               maxLength={512}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+              disabled={!!proposalUrl}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none disabled:opacity-50"
             />
             <p className="text-xs text-muted-foreground mt-1">
               {description.length}/512 characters
@@ -175,7 +319,8 @@ export default function MultisigNodeConfig({ node, onUpdate }: MultisigNodeConfi
             <select
               value={expiresIn}
               onChange={(e) => setExpiresIn(Number(e.target.value))}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              disabled={!!proposalUrl}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
             >
               <option value={3600}>1 hour</option>
               <option value={21600}>6 hours</option>
@@ -184,6 +329,53 @@ export default function MultisigNodeConfig({ node, onUpdate }: MultisigNodeConfi
               <option value={604800}>7 days</option>
             </select>
           </div>
+
+          {/* Notification Recipients */}
+          {!proposalUrl && (
+            <div className="border-t border-border pt-4 space-y-3">
+              <p className="text-sm font-medium">Notification Recipients (Optional)</p>
+              
+              <div>
+                <label className="block text-xs font-medium mb-1 text-muted-foreground">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={notifyEmail}
+                  onChange={(e) => setNotifyEmail(e.target.value)}
+                  placeholder="owner@example.com"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium mb-1 text-muted-foreground">
+                  Telegram Chat ID
+                </label>
+                <input
+                  type="text"
+                  value={notifyTelegram}
+                  onChange={(e) => setNotifyTelegram(e.target.value)}
+                  placeholder="123456789"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Get your chat ID from @userinfobot on Telegram
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Create Proposal Button */}
+          {!proposalUrl && connected && (
+            <button
+              onClick={handleCreateProposal}
+              disabled={creating || !validateFields()}
+              className="w-full px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            >
+              {creating ? 'Creating Proposal...' : 'Create Proposal & Generate URL'}
+            </button>
+          )}
         </>
       ) : (
         <>

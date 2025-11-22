@@ -29,7 +29,7 @@ export function SolanaWalletProvider({ children }: SolanaWalletProviderProps) {
     <ConnectionProvider endpoint={endpoint}>
       <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>{children}</WalletModalProvider>
-      </ConnectionProvider>
+      </WalletProvider>
     </ConnectionProvider>
   );
 }
