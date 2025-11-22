@@ -70,6 +70,9 @@ model User {
   aiNodeConfigs  AINodeConfig[]
   postgresDBNodeConfigs PostgresDBNodeConfig[]
   aiMemories  AIMemory[]
+  multisigProposals MultisigProposal[]
+  votingProposals   VotingProposal[]
+  escrowAccounts    EscrowAccount[]
 }
 
 model Credential {
@@ -118,6 +121,9 @@ model Flow {
   aiNodeConfigs  AINodeConfig[]
   postgresDBNodeConfigs PostgresDBNodeConfig[]
   aiMemories  AIMemory[]
+  multisigProposals MultisigProposal[]
+  votingProposals   VotingProposal[]
+  escrowAccounts    EscrowAccount[]
   
   @@index([userId])
   @@index([status])
@@ -419,4 +425,146 @@ model HeliusWebhookEvent {
   @@index([signature])
   @@index([processed])
   @@index([timestamp])
+}
+
+// ========== SMART CONTRACT NODES ==========
+
+model MultisigProposal {
+  id           String   @id // PDA address from contract
+  flowId       String
+  flow         Flow     @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Multisig details
+  creator      String   // Creator's public key
+  owners       String[] // Array of owner public keys (max 10)
+  threshold    Int      // Required approvals
+  description  String   // Proposal description
+  
+  // Public signing URL
+  signingUrl   String?  // Generated URL for owners to approve/reject
+  
+  // Notification settings
+  notifyEmail      String?  // Email to notify when created
+  notifyTelegram   String?  // Telegram chat ID to notify
+  
+  // Status tracking
+  status       String   // "pending", "approved", "rejected"
+  approvals    String[] // Array of approving public keys
+  rejections   String[] // Array of rejecting public keys
+  executed     Boolean  @default(false)
+  
+  // Timestamps
+  expiresAt    DateTime
+  executedAt   DateTime?
+  createdAt    DateTime @default(now())
+  
+  // Contract state
+  seed         String   // Unique seed for PDA derivation
+  bump         Int      // PDA bump seed
+  
+  @@index([flowId])
+  @@index([userId])
+  @@index([status])
+  @@index([executed])
+  @@index([expiresAt])
+}
+
+model VotingProposal {
+  id             String   @id // PDA address from contract
+  flowId         String
+  flow           Flow     @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Voting details
+  creator        String   // Creator's public key
+  title          String   // Voting title
+  description    String   // Voting description
+  choices        String[] // Array of choice labels (2-10)
+  voteCounts     Int[]    // Array of vote counts for each choice
+  
+  // Public voting URL
+  votingUrl      String?  // Generated URL for voters
+  
+  // Notification settings
+  notifyEmail      String?  // Email to notify when created
+  notifyTelegram   String?  // Telegram chat ID to notify
+  
+  // Voter management
+  allowedVoters  String[] // Optional whitelist (empty = public)
+  voters         String[] // Addresses that have voted
+  
+  // Results
+  finalized      Boolean  @default(false)
+  winnerIndex    Int?     // Index of winning choice
+  status         String   // "active", "finalized"
+  
+  // Timestamps
+  expiresAt      DateTime
+  finalizedAt    DateTime?
+  createdAt      DateTime @default(now())
+  
+  // Contract state
+  seed           String   // Unique seed for PDA derivation
+  bump           Int      // PDA bump seed
+  
+  @@index([flowId])
+  @@index([userId])
+  @@index([status])
+  @@index([finalized])
+  @@index([expiresAt])
+}
+
+model EscrowAccount {
+  id                  String   @id // PDA address from contract
+  flowId              String
+  flow                Flow     @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Parties involved
+  buyer               String   // Buyer's public key
+  seller              String   // Seller's public key
+  arbitrator          String?  // Optional arbitrator public key
+  
+  // Payment details
+  amount              String   // Amount in lamports (stored as string for precision)
+  description         String   // Escrow description
+  disputeWindowDays   Int      // Days buyer has to approve/dispute (1-30)
+  
+  // Public escrow URL
+  escrowUrl           String?  // Generated URL for parties to interact
+  
+  // Notification settings
+  notifyEmail         String?  // Email to notify when created
+  notifyTelegram      String?  // Telegram chat ID to notify
+  
+  // Status tracking
+  status              String   // "Created", "SellerDelivered", "Disputed", "Resolved", "Cancelled"
+  sellerDelivered     Boolean  @default(false)
+  sellerDeliveredAt   DateTime?
+  buyerApproved       Boolean  @default(false)
+  
+  // Dispute handling
+  disputed            Boolean  @default(false)
+  disputeRaisedAt     DateTime?
+  disputeReason       String?
+  winner              String?  // Public key of winner (buyer or seller)
+  decidedAt           DateTime?
+  
+  // Timestamps
+  createdAt           DateTime @default(now())
+  
+  // Contract state
+  seed                String   // Unique seed for PDA derivation
+  bump                Int      // PDA bump seed
+  
+  @@index([flowId])
+  @@index([userId])
+  @@index([status])
+  @@index([disputed])
+  @@index([buyer])
+  @@index([seller])
 }

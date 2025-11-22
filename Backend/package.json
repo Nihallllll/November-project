@@ -27,6 +27,7 @@
     "@langchain/langgraph": "^1.0.1",
     "@langchain/openai": "^1.1.0",
     "@prisma/client": "^6.18.0",
+    "@project-serum/anchor": "^0.26.0",
     "@pythnetwork/client": "^2.22.1",
     "@sendgrid/mail": "^8.1.6",
     "@solana/spl-token": "^0.4.14",

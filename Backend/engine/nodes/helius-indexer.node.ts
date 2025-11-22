@@ -44,7 +44,6 @@ export const heliusIndexerNode: NodeHandler = {
   execute: async (nodeData, input, context) => {
     const {
       credentialId,
-      webhookURL,
       accountAddresses,
       transactionTypes = ['ANY'],
       webhookType = 'enhanced',
@@ -69,20 +68,16 @@ export const heliusIndexerNode: NodeHandler = {
       throw new Error('flowId is required (should be provided by context)');
     }
 
-    if (!webhookURL) {
-      throw new Error('webhookURL is required');
-    }
-
     if (!accountAddresses || !Array.isArray(accountAddresses) || accountAddresses.length === 0) {
       throw new Error('accountAddresses must be a non-empty array');
     }
 
-    // Validate webhook URL format
-    try {
-      new URL(webhookURL);
-    } catch (error) {
-      throw new Error('Invalid webhookURL format');
-    }
+    // ========== AUTO-GENERATE WEBHOOK URL ==========
+    // Generate webhook URL based on your backend endpoint
+    const baseUrl = process.env.WEBHOOK_BASE_URL || process.env.BASE_URL || 'http://localhost:3000';
+    const webhookURL = `${baseUrl}/api/webhooks/helius/${flowId}`;
+    
+    context.logger(`helius_indexer: Auto-generated webhook URL: ${webhookURL}`);
 
     context.logger(`helius_indexer: Monitoring ${accountAddresses.length} address(es)`);
 

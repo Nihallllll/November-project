@@ -9,6 +9,7 @@ import { auditMiddleware, authMiddleware } from "./middlewares/auth.middleware";
 import { transactionRoutes } from "./routes/transactions.routes";
 import { authRoutes } from "./routes/auth.routes";
 import { heliusWebHookRoutes } from "./routes/helius-webhook.routes";
+import proposalRoutes from "./routes/proposals.routes";
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use("/api/v1", flowRoutes);
 app.use("/api/v1", credentialRoutes);
 app.use('/api', transactionRoutes);
 app.use('/api/v1', heliusWebHookRoutes);
+app.use('/api/v1/proposals', proposalRoutes);
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error('Request error:', err);

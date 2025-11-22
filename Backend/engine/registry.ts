@@ -16,6 +16,9 @@ import { postgresDBNode } from "./nodes/postgres-db.node";
 import { heliusIndexerNode } from "./nodes/helius-indexer.node";
 import { aiNode } from "./nodes/ai.node";
 import { mergeNode } from "./nodes/merge.node";
+import { multisigNode } from "./nodes/multisig.node";
+import { votingNode } from "./nodes/voting.node";
+import { escrowNode } from "./nodes/escrow.node";
 
 // ========== NODE REGISTRY ==========
 // This is where you register all your node types
@@ -51,6 +54,9 @@ const NODE_REGISTRY: Record<string, NodeHandler> = {
   "helius_indexer": heliusIndexerNode,
   "merge": mergeNode,  // ✅ Merge node for combining multiple inputs
   "schedule": scheduleNode,  // ✅ Schedule trigger node
+  "multisig": multisigNode,  // ✅ Solana multisig proposal node
+  "voting": votingNode,  // ✅ Solana voting/governance node
+  "escrow": escrowNode,  // ✅ Solana escrow/payment node
 };
 
 // ========== LOOKUP FUNCTION ==========
