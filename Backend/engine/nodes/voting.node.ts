@@ -114,8 +114,12 @@ async function createVoting(
   // Generate unique seed for this voting
   const seed = Date.now();
 
-  // Derive PDA address
-  const creatorPubkey = new PublicKey(userId);
+  // Derive PDA address - use creator wallet address from node data
+  const creator = (data as any).creator || userId;
+  if (!creator || creator.length < 32) {
+    throw new Error('Valid creator wallet address is required');
+  }
+  const creatorPubkey = new PublicKey(creator);
   const [votingPDA, bump] = await PublicKey.findProgramAddress(
     [
       Buffer.from('voting'),
@@ -136,7 +140,7 @@ async function createVoting(
       id: votingPDA.toString(),
       flowId,
       userId,
-      creator: userId,
+      creator: creator,
       title: title || 'Untitled Proposal',
       description: description || '',
       choices: choices,
@@ -161,7 +165,7 @@ async function createVoting(
     success: true,
     action: 'create',
     votingAddress: votingPDA.toString(),
-    creator: userId,
+    creator: creator,
     title: title || 'Untitled Proposal',
     description: description || '',
     choices: choices,

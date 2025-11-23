@@ -180,9 +180,31 @@ router.post('/voting', authMiddleware, async (req, res) => {
       notifyTelegram,
     } = req.body;
 
-    // Validation
-    if (!flowId || !title || !description || !choices || !creatorPubkey) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    // Detailed logging
+    console.log('=== VOTING PROPOSAL REQUEST ===');
+    console.log('Body received:', JSON.stringify(req.body, null, 2));
+    console.log('flowId:', flowId, 'type:', typeof flowId);
+    console.log('title:', title, 'type:', typeof title);
+    console.log('description:', description, 'type:', typeof description);
+    console.log('choices:', choices, 'type:', typeof choices, 'isArray:', Array.isArray(choices));
+    console.log('creatorPubkey:', creatorPubkey, 'type:', typeof creatorPubkey);
+    console.log('================================');
+
+    // Validation with detailed error messages
+    const missingFields = [];
+    if (!flowId) missingFields.push('flowId');
+    if (!title) missingFields.push('title');
+    if (!description) missingFields.push('description');
+    if (!choices) missingFields.push('choices');
+    if (!creatorPubkey) missingFields.push('creatorPubkey');
+    
+    if (missingFields.length > 0) {
+      console.error('Missing fields:', missingFields);
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        missingFields,
+        received: { flowId, title, description, choices: choices?.length, creatorPubkey }
+      });
     }
 
     if (!Array.isArray(choices) || choices.length < 2 || choices.length > 10) {

@@ -4,6 +4,7 @@ import { Plus, X, Copy, CheckCircle2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { useParams } from 'react-router-dom';
 import api from '../../../api/client';
 
 interface VotingNodeConfigProps {
@@ -13,6 +14,7 @@ interface VotingNodeConfigProps {
 
 export default function VotingNodeConfig({ node, onUpdate }: VotingNodeConfigProps) {
   const { publicKey, connected } = useWallet();
+  const { flowId } = useParams<{ flowId: string }>();
   
   const [action, setAction] = useState(node.data.action || 'create');
   const [title, setTitle] = useState(node.data.title || '');
@@ -94,14 +96,14 @@ export default function VotingNodeConfig({ node, onUpdate }: VotingNodeConfigPro
     setCreating(true);
     try {
       const validChoices = choices.filter(c => c.trim());
-      const response = await api.post('/proposals/voting', {
-        flowId: node.id,
-        creator: publicKey.toString(),
+      const response = await api.post('/api/v1/proposals/voting', {
+        flowId: flowId!,
+        creatorPubkey: publicKey.toString(),
         title,
         description,
         choices: validChoices,
         allowedVoters: !isPublic ? allowedVoters.filter(v => v.trim()) : [],
-        expiresIn,
+        expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
         notifyEmail: notifyEmail.trim() || undefined,
         notifyTelegram: notifyTelegram.trim() || undefined,
       });
@@ -109,6 +111,14 @@ export default function VotingNodeConfig({ node, onUpdate }: VotingNodeConfigPro
       const { proposal } = response.data;
       setProposalUrl(proposal.votingUrl);
       setProposalId(proposal.id);
+      
+      // Save creator to node data for flow execution
+      onUpdate({
+        ...node.data,
+        creator: publicKey!.toString(),
+        proposalId: proposal.id,
+        votingUrl: proposal.votingUrl
+      });
       
       toast.success('Voting proposal created successfully!');
       if (notifyEmail.trim() || notifyTelegram.trim()) {

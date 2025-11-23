@@ -4,6 +4,7 @@ import { Plus, X, AlertCircle, Copy, CheckCircle2, ExternalLink } from 'lucide-r
 import { toast } from 'sonner';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { useParams } from 'react-router-dom';
 import api from '../../../api/client';
 
 interface MultisigNodeConfigProps {
@@ -13,6 +14,7 @@ interface MultisigNodeConfigProps {
 
 export default function MultisigNodeConfig({ node, onUpdate }: MultisigNodeConfigProps) {
   const { publicKey, connected } = useWallet();
+  const { flowId } = useParams<{ flowId: string }>();
   
   const [action, setAction] = useState(node.data.action || 'create');
   const [owners, setOwners] = useState<string[]>(node.data.owners || ['']);
@@ -84,13 +86,13 @@ export default function MultisigNodeConfig({ node, onUpdate }: MultisigNodeConfi
     setCreating(true);
     try {
       const validOwners = owners.filter(o => o.trim());
-      const response = await api.post('/proposals/multisig', {
-        flowId: node.id,
-        creator: publicKey.toString(),
+      const response = await api.post('/api/v1/proposals/multisig', {
+        flowId: flowId!,
+        creatorPubkey: publicKey.toString(),
         owners: validOwners,
         threshold,
         description,
-        expiresIn,
+        expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
         notifyEmail: notifyEmail.trim() || undefined,
         notifyTelegram: notifyTelegram.trim() || undefined,
       });

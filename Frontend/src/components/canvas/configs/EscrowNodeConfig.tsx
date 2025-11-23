@@ -4,6 +4,7 @@ import { AlertCircle, Copy, CheckCircle2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { useParams } from 'react-router-dom';
 import api from '../../../api/client';
 
 interface EscrowNodeConfigProps {
@@ -13,6 +14,7 @@ interface EscrowNodeConfigProps {
 
 export default function EscrowNodeConfig({ node, onUpdate }: EscrowNodeConfigProps) {
   const { publicKey, connected } = useWallet();
+  const { flowId } = useParams<{ flowId: string }>();
   
   const [action, setAction] = useState(node.data.action || 'create');
   
@@ -108,12 +110,13 @@ export default function EscrowNodeConfig({ node, onUpdate }: EscrowNodeConfigPro
 
     setCreating(true);
     try {
-      const response = await api.post('/proposals/escrow', {
-        flowId: node.id,
+      const response = await api.post('/api/v1/proposals/escrow', {
+        flowId: flowId!,
+        creatorPubkey: publicKey.toString(),
         buyer,
         seller,
         arbitrator: arbitrator.trim() || undefined,
-        amount: parseFloat(amount),
+        amount,
         description,
         disputeWindowDays,
         notifyEmail: notifyEmail.trim() || undefined,
