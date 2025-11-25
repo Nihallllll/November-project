@@ -96,6 +96,19 @@ export default function VotingNodeConfig({ node, onUpdate }: VotingNodeConfigPro
     setCreating(true);
     try {
       const validChoices = choices.filter(c => c.trim());
+      
+      console.log('=== CREATING VOTING PROPOSAL ===');
+      console.log('flowId:', flowId);
+      console.log('publicKey:', publicKey?.toString());
+      console.log('title:', title);
+      console.log('description:', description);
+      console.log('choices:', validChoices);
+      console.log('isPublic:', isPublic);
+      console.log('allowedVoters:', allowedVoters);
+      console.log('expiresIn:', expiresIn);
+      console.log('notifyEmail:', notifyEmail);
+      console.log('notifyTelegram:', notifyTelegram);
+      
       const response = await api.post('/api/v1/proposals/voting', {
         flowId: flowId!,
         creatorPubkey: publicKey.toString(),
@@ -108,7 +121,14 @@ export default function VotingNodeConfig({ node, onUpdate }: VotingNodeConfigPro
         notifyTelegram: notifyTelegram.trim() || undefined,
       });
 
+      console.log('=== API RESPONSE ===');
+      console.log('Full response:', response.data);
+      
       const { proposal } = response.data;
+      console.log('proposal object:', proposal);
+      console.log('proposal.votingUrl:', proposal.votingUrl);
+      console.log('proposal.id:', proposal.id);
+      
       setProposalUrl(proposal.votingUrl);
       setProposalId(proposal.id);
       
@@ -125,8 +145,13 @@ export default function VotingNodeConfig({ node, onUpdate }: VotingNodeConfigPro
         toast.info('Notifications sent to recipients');
       }
     } catch (error: any) {
-      console.error('Failed to create proposal:', error);
-      toast.error(error.response?.data?.error || 'Failed to create proposal');
+      console.error('=== VOTING PROPOSAL ERROR ===');
+      console.error('Full error:', error);
+      console.error('error.response:', error.response);
+      console.error('error.response?.data:', error.response?.data);
+      console.error('error.message:', error.message);
+      
+      toast.error(error.response?.data?.error || error.message || 'Failed to create proposal');
     } finally {
       setCreating(false);
     }

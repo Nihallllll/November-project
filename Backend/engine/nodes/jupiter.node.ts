@@ -29,6 +29,11 @@ export const jupiterNode: NodeHandler = {
     // Validate required fields
     if (!inputMint) throw new Error("inputMint (input token address) is required");
     if (!outputMint) throw new Error("outputMint (output token address) is required");
+    
+    // Validate that outputMint is a valid Solana address (base58, 32-44 chars)
+    if (outputMint.length < 32 || outputMint.length > 44) {
+      throw new Error(`Invalid outputMint: "${outputMint}". Must be a valid Solana token address (32-44 characters). Bitcoin is not available on Solana - use wrapped BTC token instead.`);
+    }
 
     try {
       context.logger(`jupiter: getting quote for ${inputMint} → ${outputMint}`);

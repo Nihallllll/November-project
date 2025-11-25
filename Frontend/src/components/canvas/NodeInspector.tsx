@@ -12,6 +12,7 @@ import { HeliusIndexerNodeConfig } from './configs/HeliusIndexerNodeConfig';
 import MultisigNodeConfig from './configs/MultisigNodeConfig';
 import VotingNodeConfig from './configs/VotingNodeConfig';
 import EscrowNodeConfig from './configs/EscrowNodeConfig';
+import Mem0NodeConfig from './configs/Mem0NodeConfig';
 import {
   PythPriceNodeConfig,
   JupiterNodeConfig,
@@ -81,6 +82,8 @@ export default function NodeInspector({ selectedNode, onClose, onUpdate }: NodeI
         return <VotingNodeConfig node={selectedNode} onUpdate={handleUpdate} />;
       case 'escrow':
         return <EscrowNodeConfig node={selectedNode} onUpdate={handleUpdate} />;
+      case 'mem0':
+        return <Mem0NodeConfig node={selectedNode} onUpdate={handleUpdate} />;
       default:
         return (
           <div className="text-center text-muted-foreground py-8">

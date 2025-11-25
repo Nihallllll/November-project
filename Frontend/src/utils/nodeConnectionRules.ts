@@ -97,6 +97,15 @@ export const nodeConnectionConfigs: Record<string, NodeConnectionConfig> = {
       { id: 'output', type: 'source', position: 'right', dataType: [DataTypes.DATABASE, DataTypes.ANY] }
     ],
   },
+  mem0: {
+    category: 'data',
+    inputs: [
+      { id: 'input', type: 'target', position: 'left', dataType: [DataTypes.ANY] }
+    ],
+    outputs: [
+      { id: 'output', type: 'source', position: 'right', dataType: [DataTypes.DATABASE, DataTypes.ANY] }
+    ],
+  },
   httpRequest: {
     category: 'data',
     inputs: [

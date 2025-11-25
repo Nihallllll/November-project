@@ -19,6 +19,7 @@ import { mergeNode } from "./nodes/merge.node";
 import { multisigNode } from "./nodes/multisig.node";
 import { votingNode } from "./nodes/voting.node";
 import { escrowNode } from "./nodes/escrow.node";
+import { mem0Node } from "./nodes/mem0.node";
 
 // ========== NODE REGISTRY ==========
 // This is where you register all your node types
@@ -57,6 +58,7 @@ const NODE_REGISTRY: Record<string, NodeHandler> = {
   "multisig": multisigNode,  // ✅ Solana multisig proposal node
   "voting": votingNode,  // ✅ Solana voting/governance node
   "escrow": escrowNode,  // ✅ Solana escrow/payment node
+  "mem0": mem0Node,  // ✅ Mem0 AI memory management
 };
 
 // ========== LOOKUP FUNCTION ==========

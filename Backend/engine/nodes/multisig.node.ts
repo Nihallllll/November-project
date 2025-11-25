@@ -19,12 +19,13 @@
 
 import type { NodeHandler } from './node-handler.interface';
 import { Connection, PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
-import { AnchorProvider, Program, web3 } from '@project-serum/anchor';
+import * as anchor from '@coral-xyz/anchor';
 import getConnection from '../../config/web3';
 import prisma from '../../config/database';
+import type { AutomationPlatform } from '../../target/types/automation_platform';
+import IDL from '../../target/idl/automation_platform.json';
 
-// TODO: Add program ID after deployment
-const PROGRAM_ID = new PublicKey('3cxwG4X6k67rmaJzChP4sUqq8CnqMmuN6uM6bHKLRPz1');
+const PROGRAM_ID = new PublicKey('96rirZnPMvTp6rM28py3dGcUecjt4fnE5yGEz86PSj9z');
 
 interface MultisigNodeData {
   action: 'create' | 'approve' | 'reject' | 'check_status';

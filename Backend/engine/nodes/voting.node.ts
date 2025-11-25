@@ -7,23 +7,26 @@
  * Allows creation and management of on-chain voting proposals
  * 
  * Actions:
- * - create: Initialize new voting proposal
- * - cast_vote: Vote on a proposal
- * - finalize: Finalize voting and determine winner
- * - check_results: Query voting results
+ * - create: Initialize new voting proposal ON-CHAIN + Database
+ * - cast_vote: Vote on a proposal ON-CHAIN
+ * - finalize: Finalize voting and determine winner ON-CHAIN
+ * - check_results: Query voting results from BLOCKCHAIN
  * 
- * @version 1.0.0
+ * @version 2.0.0 - WITH BLOCKCHAIN INTEGRATION
  * @date November 2024
  * ================================================================
  */
 
 import type { NodeHandler } from './node-handler.interface';
-import { Connection, PublicKey } from '@solana/web3.js';
+import { Connection, PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
+import * as anchor from '@coral-xyz/anchor';
 import getConnection from '../../config/web3';
 import prisma from '../../config/database';
+import type { AutomationPlatform } from '../../target/types/automation_platform';
+import IDL from '../../target/idl/automation_platform.json';
 
-// TODO: Add program ID after deployment
-const PROGRAM_ID = new PublicKey('3cxwG4X6k67rmaJzChP4sUqq8CnqMmuN6uM6bHKLRPz1');
+// ⚠️ CRITICAL: This is the deployed program ID
+const PROGRAM_ID = new PublicKey('96rirZnPMvTp6rM28py3dGcUecjt4fnE5yGEz86PSj9z');
 
 interface VotingNodeData {
   action: 'create' | 'cast_vote' | 'finalize' | 'check_results';
@@ -120,11 +123,17 @@ async function createVoting(
     throw new Error('Valid creator wallet address is required');
   }
   const creatorPubkey = new PublicKey(creator);
+  
+  // ⚠️ IMPORTANT: PDA derivation MUST match the Solana program
+  // Program uses: seeds = [b"voting", creator.key().as_ref(), &seed.to_le_bytes()]
+  const seedBuffer = Buffer.alloc(8);
+  seedBuffer.writeBigUInt64LE(BigInt(seed));
+  
   const [votingPDA, bump] = await PublicKey.findProgramAddress(
     [
       Buffer.from('voting'),
       creatorPubkey.toBuffer(),
-      Buffer.from(seed.toString().padStart(8, '0'))
+      seedBuffer
     ],
     PROGRAM_ID
   );

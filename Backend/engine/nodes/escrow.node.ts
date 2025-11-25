@@ -21,12 +21,14 @@
  */
 
 import type { NodeHandler } from './node-handler.interface';
-import { Connection, PublicKey } from '@solana/web3.js';
+import { Connection, PublicKey, SystemProgram } from '@solana/web3.js';
+import * as anchor from '@coral-xyz/anchor';
 import getConnection from '../../config/web3';
 import prisma from '../../config/database';
+import type { AutomationPlatform } from '../../target/types/automation_platform';
+import IDL from '../../target/idl/automation_platform.json';
 
-// TODO: Add program ID after deployment
-const PROGRAM_ID = new PublicKey('3cxwG4X6k67rmaJzChP4sUqq8CnqMmuN6uM6bHKLRPz1');
+const PROGRAM_ID = new PublicKey('96rirZnPMvTp6rM28py3dGcUecjt4fnE5yGEz86PSj9z');
 
 type EscrowStatus = 'Created' | 'SellerDelivered' | 'BuyerApproved' | 'Disputed' | 'Resolved' | 'Cancelled';
 

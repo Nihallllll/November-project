@@ -127,6 +127,14 @@ export default function EscrowNodeConfig({ node, onUpdate }: EscrowNodeConfigPro
       setProposalUrl(proposal.escrowUrl);
       setProposalId(proposal.id);
       
+      // Save creator and proposal data to node for flow execution
+      onUpdate({
+        ...node.data,
+        creator: publicKey!.toString(),
+        proposalId: proposal.id,
+        escrowUrl: proposal.escrowUrl
+      });
+      
       toast.success('Escrow account created successfully!');
       if (notifyEmail.trim() || notifyTelegram.trim()) {
         toast.info('Notifications sent to recipients');

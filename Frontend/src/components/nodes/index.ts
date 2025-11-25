@@ -19,6 +19,7 @@ import ScheduleNode from './ScheduleNode';
 import MultisigNode from './MultisigNode';
 import VotingNode from './VotingNode';
 import EscrowNode from './EscrowNode';
+import Mem0Node from './Mem0Node';
 
 export const nodeTypes = {
   ai: AINode,
@@ -42,4 +43,5 @@ export const nodeTypes = {
   multisig: MultisigNode,
   voting: VotingNode,
   escrow: EscrowNode,
+  mem0: Mem0Node,
 };

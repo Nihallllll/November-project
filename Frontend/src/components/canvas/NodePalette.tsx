@@ -25,6 +25,7 @@ const nodeCategories: NodeCategory[] = [
     name: 'AI & Logic',
     nodes: [
       { type: 'ai', label: 'AI Agent', icon: '🤖', color: 'bg-purple-500' },
+      { type: 'mem0', label: 'Mem0 Memory', icon: '🧠', color: 'bg-indigo-500' },
       { type: 'condition', label: 'Condition', icon: '◆', color: 'bg-yellow-500' },
       { type: 'merge', label: 'Merge', icon: '⊃', color: 'bg-gray-500' },
     ],

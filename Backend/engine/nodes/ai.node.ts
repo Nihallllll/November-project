@@ -186,7 +186,7 @@ export const aiNode: NodeHandler = {
           },
           memoryConfig,
           {
-            provider: providerLower as any,
+            provider: providerLower.toUpperCase() as 'OPENAI' | 'GOOGLE',
             credentialId,
             modelName: model,
             systemPrompt: systemPrompt || '',

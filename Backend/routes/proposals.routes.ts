@@ -399,7 +399,7 @@ ${escrow.escrowUrl}
 
     res.json({
       success: true,
-      escrow: {
+      proposal: {
         id: escrow.id,
         escrowUrl: escrow.escrowUrl,
         seed: escrow.seed,

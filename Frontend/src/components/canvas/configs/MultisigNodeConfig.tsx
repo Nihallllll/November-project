@@ -101,6 +101,14 @@ export default function MultisigNodeConfig({ node, onUpdate }: MultisigNodeConfi
       setProposalUrl(proposal.signingUrl);
       setProposalId(proposal.id);
       
+      // Save creator and proposal data to node for flow execution
+      onUpdate({
+        ...node.data,
+        creator: publicKey!.toString(),
+        proposalId: proposal.id,
+        signingUrl: proposal.signingUrl
+      });
+      
       toast.success('Multisig proposal created successfully!');
       if (notifyEmail.trim() || notifyTelegram.trim()) {
         toast.info('Notifications sent to recipients');
