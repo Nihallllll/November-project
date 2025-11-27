@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useWallet, useAnchorWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { CheckCircle2, XCircle, Clock, Users, AlertCircle, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, Users, AlertCircle, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 import { format } from 'date-fns';
+import { approveFlowTransaction, rejectFlowTransaction, fetchMultisigAccount } from '../../utils/transactions/multisigTransactions';
 
 interface MultisigProposal {
   id: string;
@@ -19,6 +20,7 @@ interface MultisigProposal {
   executed: boolean;
   expiresAt: string;
   createdAt: string;
+  onChain?: boolean;
 }
 
 const API_BASE_URL = (import.meta.env?.VITE_API_URL as string) || 'http://localhost:3000';
@@ -29,16 +31,26 @@ export default function MultisigSigningPage() {
   const signerParam = searchParams.get('signer');
   
   const { publicKey, connected } = useWallet();
+  const anchorWallet = useAnchorWallet();
   const [proposal, setProposal] = useState<MultisigProposal | null>(null);
+  const [onChainData, setOnChainData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [txSignature, setTxSignature] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
       fetchProposal();
     }
   }, [id]);
+
+  // Fetch on-chain data when wallet connects
+  useEffect(() => {
+    if (id && anchorWallet) {
+      fetchOnChainData();
+    }
+  }, [id, anchorWallet]);
 
   const fetchProposal = async () => {
     try {
@@ -55,20 +67,36 @@ export default function MultisigSigningPage() {
     }
   };
 
+  const fetchOnChainData = async () => {
+    if (!anchorWallet || !id) return;
+    try {
+      const data = await fetchMultisigAccount(id, anchorWallet);
+      if (data) {
+        console.log('On-chain multisig data:', data);
+        setOnChainData(data);
+      }
+    } catch (err) {
+      console.log('No on-chain data found (may be database-only proposal)');
+    }
+  };
+
   const handleApprove = async () => {
     if (!publicKey || !proposal) return;
 
-    if (!proposal.owners.includes(publicKey.toString())) {
+    const owners = onChainData?.owners || proposal.owners;
+    if (!owners.includes(publicKey.toString())) {
       toast.error('You are not an owner of this proposal');
       return;
     }
 
-    if (proposal.approvals.includes(publicKey.toString())) {
+    const approvals = onChainData?.approvals || proposal.approvals;
+    if (approvals.includes(publicKey.toString())) {
       toast.error('You have already approved this proposal');
       return;
     }
 
-    if (proposal.rejections.includes(publicKey.toString())) {
+    const rejections = onChainData?.rejections || proposal.rejections;
+    if (rejections.includes(publicKey.toString())) {
       toast.error('You have already rejected this proposal');
       return;
     }
@@ -76,21 +104,54 @@ export default function MultisigSigningPage() {
     try {
       setSubmitting(true);
       
-      const response = await axios.post(`${API_BASE_URL}/api/multisig/${id}/approve`, {
-        signer: publicKey.toString(),
-      });
-
-      toast.success('Proposal approved successfully!');
-      
-      // Refresh proposal data
-      await fetchProposal();
-      
-      if (response.data.thresholdMet) {
-        toast.success('🎉 Threshold reached! Proposal executed.');
+      // Try on-chain approval first if we have anchor wallet
+      if (anchorWallet && onChainData) {
+        toast.loading('Approving on-chain...', { id: 'approve' });
+        
+        const signature = await approveFlowTransaction({
+          wallet: anchorWallet,
+          multisigPDA: id!,
+        });
+        
+        setTxSignature(signature);
+        toast.success('Approved on-chain!', { id: 'approve' });
+        
+        // Also update database
+        const response = await axios.post(`${API_BASE_URL}/api/multisig/${id}/approve`, {
+          signer: publicKey.toString(),
+          txSignature: signature,
+        });
+        
+        // Refresh both data sources
+        await Promise.all([fetchProposal(), fetchOnChainData()]);
+        
+        if (response.data.thresholdMet) {
+          toast.success('🎉 Threshold reached! Proposal executed.');
+        }
+      } else {
+        // Fallback to database-only approval
+        toast.loading('Approving...', { id: 'approve' });
+        
+        const response = await axios.post(`${API_BASE_URL}/api/multisig/${id}/approve`, {
+          signer: publicKey.toString(),
+        });
+        
+        toast.success('Proposal approved!', { id: 'approve' });
+        await fetchProposal();
+        
+        if (response.data.thresholdMet) {
+          toast.success('🎉 Threshold reached! Proposal executed.');
+        }
       }
     } catch (err: any) {
       console.error('Failed to approve:', err);
-      toast.error(err.response?.data?.message || 'Failed to approve proposal');
+      if (err.message?.includes('User rejected')) {
+        toast.error('Transaction rejected', { id: 'approve' });
+      } else if (err.message?.includes('AlreadyApproved')) {
+        toast.error('You have already approved', { id: 'approve' });
+      } else {
+        toast.error(err.response?.data?.message || err.message || 'Failed to approve', { id: 'approve' });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -99,17 +160,20 @@ export default function MultisigSigningPage() {
   const handleReject = async () => {
     if (!publicKey || !proposal) return;
 
-    if (!proposal.owners.includes(publicKey.toString())) {
+    const owners = onChainData?.owners || proposal.owners;
+    if (!owners.includes(publicKey.toString())) {
       toast.error('You are not an owner of this proposal');
       return;
     }
 
-    if (proposal.rejections.includes(publicKey.toString())) {
+    const rejections = onChainData?.rejections || proposal.rejections;
+    if (rejections.includes(publicKey.toString())) {
       toast.error('You have already rejected this proposal');
       return;
     }
 
-    if (proposal.approvals.includes(publicKey.toString())) {
+    const approvals = onChainData?.approvals || proposal.approvals;
+    if (approvals.includes(publicKey.toString())) {
       toast.error('You have already approved this proposal');
       return;
     }
@@ -117,29 +181,66 @@ export default function MultisigSigningPage() {
     try {
       setSubmitting(true);
       
-      await axios.post(`${API_BASE_URL}/api/multisig/${id}/reject`, {
-        signer: publicKey.toString(),
-      });
-
-      toast.success('Proposal rejected');
-      
-      // Refresh proposal data
-      await fetchProposal();
+      // Try on-chain rejection first if we have anchor wallet
+      if (anchorWallet && onChainData) {
+        toast.loading('Rejecting on-chain...', { id: 'reject' });
+        
+        const signature = await rejectFlowTransaction({
+          wallet: anchorWallet,
+          multisigPDA: id!,
+        });
+        
+        setTxSignature(signature);
+        toast.success('Rejected on-chain!', { id: 'reject' });
+        
+        // Also update database
+        await axios.post(`${API_BASE_URL}/api/multisig/${id}/reject`, {
+          signer: publicKey.toString(),
+          txSignature: signature,
+        });
+        
+        // Refresh both data sources
+        await Promise.all([fetchProposal(), fetchOnChainData()]);
+      } else {
+        // Fallback to database-only rejection
+        toast.loading('Rejecting...', { id: 'reject' });
+        
+        await axios.post(`${API_BASE_URL}/api/multisig/${id}/reject`, {
+          signer: publicKey.toString(),
+        });
+        
+        toast.success('Proposal rejected', { id: 'reject' });
+        await fetchProposal();
+      }
     } catch (err: any) {
       console.error('Failed to reject:', err);
-      toast.error(err.response?.data?.message || 'Failed to reject proposal');
+      if (err.message?.includes('User rejected')) {
+        toast.error('Transaction rejected', { id: 'reject' });
+      } else if (err.message?.includes('AlreadyRejected')) {
+        toast.error('You have already rejected', { id: 'reject' });
+      } else {
+        toast.error(err.response?.data?.message || err.message || 'Failed to reject', { id: 'reject' });
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
+  // Use on-chain data if available, otherwise use database
+  const displayData = onChainData || proposal;
+  const approvals = onChainData?.approvals || proposal?.approvals || [];
+  const rejections = onChainData?.rejections || proposal?.rejections || [];
+  const owners = onChainData?.owners || proposal?.owners || [];
+  const threshold = onChainData?.threshold || proposal?.threshold || 1;
+  const executed = onChainData?.executed || proposal?.executed || false;
+
   const isExpired = proposal && new Date(proposal.expiresAt) < new Date();
-  const canVote = connected && publicKey && proposal?.owners.includes(publicKey.toString());
+  const canVote = connected && publicKey && owners.includes(publicKey.toString());
   const hasVoted = publicKey && (
-    proposal?.approvals.includes(publicKey.toString()) ||
-    proposal?.rejections.includes(publicKey.toString())
+    approvals.includes(publicKey.toString()) ||
+    rejections.includes(publicKey.toString())
   );
-  const userApproval = publicKey && proposal?.approvals.includes(publicKey.toString());
+  const userApproval = publicKey && approvals.includes(publicKey.toString());
 
   if (loading) {
     return (
@@ -183,7 +284,7 @@ export default function MultisigSigningPage() {
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="space-y-6">
           {/* Status Banner */}
-          {proposal.executed && (
+          {executed && (
             <div className="glass border border-green-500/50 rounded-lg p-4 flex items-center gap-3">
               <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0" />
               <div>
@@ -193,7 +294,7 @@ export default function MultisigSigningPage() {
             </div>
           )}
 
-          {isExpired && !proposal.executed && (
+          {isExpired && !executed && (
             <div className="glass border border-yellow-500/50 rounded-lg p-4 flex items-center gap-3">
               <AlertCircle className="w-6 h-6 text-yellow-500 flex-shrink-0" />
               <div>
@@ -215,7 +316,7 @@ export default function MultisigSigningPage() {
                 <p className="text-sm text-muted-foreground mb-1">Threshold</p>
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4 text-primary" />
-                  <span className="font-semibold">{proposal.threshold} of {proposal.owners.length}</span>
+                  <span className="font-semibold">{threshold} of {owners.length}</span>
                 </div>
               </div>
               <div>
@@ -237,24 +338,24 @@ export default function MultisigSigningPage() {
 
           {/* Owners */}
           <div className="glass border border-border/50 rounded-lg p-6">
-            <h2 className="text-lg font-semibold mb-4">Owners ({proposal.owners.length})</h2>
+            <h2 className="text-lg font-semibold mb-4">Owners ({owners.length})</h2>
             <div className="space-y-2">
-              {proposal.owners.map((owner, idx) => (
+              {owners.map((owner, idx) => (
                 <div key={idx} className="flex items-center justify-between p-3 bg-accent/30 rounded-lg">
                   <code className="text-sm font-mono flex-1 mr-4 truncate">{owner}</code>
-                  {proposal.approvals.includes(owner) && (
+                  {approvals.includes(owner) && (
                     <span className="flex items-center gap-1 text-green-600 dark:text-green-400 text-sm">
                       <CheckCircle2 className="w-4 h-4" />
                       Approved
                     </span>
                   )}
-                  {proposal.rejections.includes(owner) && (
+                  {rejections.includes(owner) && (
                     <span className="flex items-center gap-1 text-destructive text-sm">
                       <XCircle className="w-4 h-4" />
                       Rejected
                     </span>
                   )}
-                  {!proposal.approvals.includes(owner) && !proposal.rejections.includes(owner) && (
+                  {!approvals.includes(owner) && !rejections.includes(owner) && (
                     <span className="text-muted-foreground text-sm">Pending</span>
                   )}
                 </div>
@@ -267,18 +368,18 @@ export default function MultisigSigningPage() {
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-lg font-semibold">Approval Progress</h2>
               <span className="text-sm font-semibold">
-                {proposal.approvals.length} / {proposal.threshold}
+                {approvals.length} / {threshold}
               </span>
             </div>
             <div className="w-full bg-accent/30 rounded-full h-3 overflow-hidden">
               <div
                 className="bg-gradient-to-r from-primary to-secondary h-full transition-all duration-500"
-                style={{ width: `${Math.min((proposal.approvals.length / proposal.threshold) * 100, 100)}%` }}
+                style={{ width: `${Math.min((approvals.length / threshold) * 100, 100)}%` }}
               />
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              {proposal.threshold - proposal.approvals.length > 0
-                ? `${proposal.threshold - proposal.approvals.length} more approval(s) needed`
+              {threshold - approvals.length > 0
+                ? `${threshold - approvals.length} more approval(s) needed`
                 : 'Threshold reached!'}
             </p>
           </div>
@@ -317,8 +418,18 @@ export default function MultisigSigningPage() {
                   <p className="text-sm text-muted-foreground">Your rejection has been recorded</p>
                 </>
               )}
+              {txSignature && (
+                <a
+                  href={`https://explorer.solana.com/tx/${txSignature}?cluster=devnet`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 mt-3 text-primary hover:underline text-sm"
+                >
+                  View on Explorer <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
             </div>
-          ) : isExpired || proposal.executed ? (
+          ) : isExpired || executed ? (
             <div className="glass border border-border/50 rounded-lg p-6 text-center">
               <AlertCircle className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
               <p className="font-semibold mb-2">

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Node } from 'reactflow';
-import { Plus, X, Copy, CheckCircle2, ExternalLink } from 'lucide-react';
+import { Plus, X, Copy, CheckCircle2, ExternalLink, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useParams } from 'react-router-dom';
 import api from '../../../api/client';
+import { createVotingTransaction } from '../../../utils/transactions/votingTransactions';
+import { useAnchorWallet } from '@solana/wallet-adapter-react';
 
 interface VotingNodeConfigProps {
   node: Node;
@@ -14,6 +16,7 @@ interface VotingNodeConfigProps {
 
 export default function VotingNodeConfig({ node, onUpdate }: VotingNodeConfigProps) {
   const { publicKey, connected } = useWallet();
+  const anchorWallet = useAnchorWallet();
   const { flowId } = useParams<{ flowId: string }>();
   
   const [action, setAction] = useState(node.data.action || 'create');
@@ -37,6 +40,7 @@ export default function VotingNodeConfig({ node, onUpdate }: VotingNodeConfigPro
   // Proposal creation states
   const [proposalUrl, setProposalUrl] = useState(node.data.proposalUrl || '');
   const [proposalId, setProposalId] = useState(node.data.proposalId || '');
+  const [txSignature, setTxSignature] = useState(node.data.txSignature || '');
   const [notifyEmail, setNotifyEmail] = useState('');
   const [notifyTelegram, setNotifyTelegram] = useState('');
   const [creating, setCreating] = useState(false);
@@ -84,7 +88,7 @@ export default function VotingNodeConfig({ node, onUpdate }: VotingNodeConfigPro
   };
 
   const handleCreateProposal = async () => {
-    if (!connected || !publicKey) {
+    if (!connected || !publicKey || !anchorWallet) {
       toast.error('Please connect your wallet first');
       return;
     }
@@ -96,8 +100,9 @@ export default function VotingNodeConfig({ node, onUpdate }: VotingNodeConfigPro
     setCreating(true);
     try {
       const validChoices = choices.filter(c => c.trim());
+      const expiresAtTimestamp = Math.floor(Date.now() / 1000) + expiresIn;
       
-      console.log('=== CREATING VOTING PROPOSAL ===');
+      console.log('=== CREATING VOTING PROPOSAL ON-CHAIN ===');
       console.log('flowId:', flowId);
       console.log('publicKey:', publicKey?.toString());
       console.log('title:', title);
@@ -105,10 +110,26 @@ export default function VotingNodeConfig({ node, onUpdate }: VotingNodeConfigPro
       console.log('choices:', validChoices);
       console.log('isPublic:', isPublic);
       console.log('allowedVoters:', allowedVoters);
-      console.log('expiresIn:', expiresIn);
-      console.log('notifyEmail:', notifyEmail);
-      console.log('notifyTelegram:', notifyTelegram);
+      console.log('expiresAt:', expiresAtTimestamp);
       
+      // Step 1: Create on-chain transaction
+      toast.loading('Creating on-chain voting proposal...', { id: 'create-voting' });
+      
+      const onChainResult = await createVotingTransaction({
+        wallet: anchorWallet,
+        choices: validChoices,
+        expiresAt: expiresAtTimestamp,
+        allowedVoters: !isPublic ? allowedVoters.filter(v => v.trim()) : undefined,
+      });
+      
+      console.log('=== ON-CHAIN RESULT ===');
+      console.log('Signature:', onChainResult.signature);
+      console.log('Voting PDA:', onChainResult.votingPDA);
+      console.log('Seed:', onChainResult.seed);
+      
+      toast.loading('Saving to database...', { id: 'create-voting' });
+      
+      // Step 2: Save to database with the on-chain data
       const response = await api.post('/api/v1/proposals/voting', {
         flowId: flowId!,
         creatorPubkey: publicKey.toString(),
@@ -116,42 +137,56 @@ export default function VotingNodeConfig({ node, onUpdate }: VotingNodeConfigPro
         description,
         choices: validChoices,
         allowedVoters: !isPublic ? allowedVoters.filter(v => v.trim()) : [],
-        expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
+        expiresAt: new Date(expiresAtTimestamp * 1000).toISOString(),
         notifyEmail: notifyEmail.trim() || undefined,
         notifyTelegram: notifyTelegram.trim() || undefined,
+        // On-chain data
+        onChainPDA: onChainResult.votingPDA,
+        onChainSeed: onChainResult.seed,
+        onChainBump: onChainResult.bump,
+        onChainTxSignature: onChainResult.signature,
       });
 
       console.log('=== API RESPONSE ===');
       console.log('Full response:', response.data);
       
       const { proposal } = response.data;
-      console.log('proposal object:', proposal);
-      console.log('proposal.votingUrl:', proposal.votingUrl);
-      console.log('proposal.id:', proposal.id);
       
-      setProposalUrl(proposal.votingUrl);
-      setProposalId(proposal.id);
+      // Generate URL with the on-chain PDA
+      const votingUrl = `${window.location.origin}/vote/${onChainResult.votingPDA}`;
       
-      // Save creator to node data for flow execution
+      setProposalUrl(votingUrl);
+      setProposalId(onChainResult.votingPDA);
+      setTxSignature(onChainResult.signature);
+      
+      // Save to node data for flow execution
       onUpdate({
         ...node.data,
         creator: publicKey!.toString(),
-        proposalId: proposal.id,
-        votingUrl: proposal.votingUrl
+        proposalId: onChainResult.votingPDA,
+        votingUrl: votingUrl,
+        txSignature: onChainResult.signature,
+        seed: onChainResult.seed,
+        bump: onChainResult.bump,
+        onChain: true,
       });
       
-      toast.success('Voting proposal created successfully!');
+      toast.success('Voting proposal created on-chain!', { id: 'create-voting' });
       if (notifyEmail.trim() || notifyTelegram.trim()) {
         toast.info('Notifications sent to recipients');
       }
     } catch (error: any) {
       console.error('=== VOTING PROPOSAL ERROR ===');
       console.error('Full error:', error);
-      console.error('error.response:', error.response);
-      console.error('error.response?.data:', error.response?.data);
-      console.error('error.message:', error.message);
       
-      toast.error(error.response?.data?.error || error.message || 'Failed to create proposal');
+      // Check for specific Solana errors
+      if (error.message?.includes('insufficient funds')) {
+        toast.error('Insufficient SOL for transaction. Get devnet SOL from a faucet.', { id: 'create-voting' });
+      } else if (error.message?.includes('User rejected')) {
+        toast.error('Transaction rejected by user', { id: 'create-voting' });
+      } else {
+        toast.error(error.message || 'Failed to create proposal', { id: 'create-voting' });
+      }
     } finally {
       setCreating(false);
     }

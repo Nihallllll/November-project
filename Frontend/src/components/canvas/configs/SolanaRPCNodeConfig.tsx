@@ -34,9 +34,9 @@ export function SolanaRPCNodeConfig({ node, onUpdate }: SolanaRPCNodeConfigProps
   const loadCredentials = async () => {
     try {
       setLoading(true);
-      const userId = localStorage.getItem('userId');
+      const userId = localStorage.getItem('user_id');
       if (!userId) {
-        console.warn('SolanaRPCNodeConfig: No userId in localStorage');
+        console.warn('SolanaRPCNodeConfig: No user_id in localStorage');
         return;
       }
 
@@ -45,8 +45,19 @@ export function SolanaRPCNodeConfig({ node, onUpdate }: SolanaRPCNodeConfigProps
       console.log('SolanaRPCNodeConfig: All credentials:', allCreds);
       console.log('SolanaRPCNodeConfig: Credential types:', allCreds.map(c => c.type));
       
-      const solanaRPCCreds = allCreds.filter((c) => c.type === 'solana_rpc');
+      // Filter for Solana RPC credentials (case-insensitive)
+      const solanaRPCCreds = allCreds.filter((c) => {
+        const typeLC = c.type.toLowerCase();
+        return typeLC === 'solana_rpc' || 
+               typeLC === 'solana-rpc' || 
+               typeLC === 'solanarpc' ||
+               typeLC.includes('solana') && typeLC.includes('rpc');
+      });
       console.log('SolanaRPCNodeConfig: Filtered Solana RPC credentials:', solanaRPCCreds);
+      
+      if (solanaRPCCreds.length === 0 && allCreds.length > 0) {
+        console.warn('⚠️ No Solana RPC credentials found. Available types:', allCreds.map(c => c.type));
+      }
       
       setCredentials(solanaRPCCreds);
     } catch (error) {
@@ -58,7 +69,7 @@ export function SolanaRPCNodeConfig({ node, onUpdate }: SolanaRPCNodeConfigProps
   };
 
   const handleChange = (field: string, value: any) => {
-    const userId = localStorage.getItem('userId');
+    const userId = localStorage.getItem('user_id');
     const newData = { 
       ...localData, 
       [field]: value,

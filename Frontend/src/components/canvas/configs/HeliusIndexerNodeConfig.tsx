@@ -49,9 +49,9 @@ export function HeliusIndexerNodeConfig({ node, onUpdate }: HeliusIndexerNodeCon
   const loadCredentials = async () => {
     try {
       setLoading(true);
-      const userId = localStorage.getItem('userId');
+      const userId = localStorage.getItem('user_id');
       if (!userId) {
-        console.warn('HeliusIndexerNodeConfig: No userId in localStorage');
+        console.warn('HeliusIndexerNodeConfig: No user_id in localStorage');
         toast.error('User not logged in. Please refresh the page.');
         return;
       }
@@ -61,17 +61,18 @@ export function HeliusIndexerNodeConfig({ node, onUpdate }: HeliusIndexerNodeCon
       console.log('HeliusIndexerNodeConfig: All credentials:', allCreds);
       console.log('HeliusIndexerNodeConfig: Credential types found:', allCreds.map(c => c.type));
       
-      // Filter for helius credentials (case-insensitive)
-      const heliusCreds = allCreds.filter((c) => 
-        c.type.toLowerCase() === 'helius' || 
-        c.type.toLowerCase() === 'helius_api_key' ||
-        c.type.toLowerCase().includes('helius')
-      );
+      // Filter for helius credentials (case-insensitive, support variations)
+      const heliusCreds = allCreds.filter((c) => {
+        const typeLC = c.type.toLowerCase().replace(/[\s_-]/g, '');
+        return typeLC === 'helius' || 
+               typeLC === 'heliusapi' || 
+               typeLC === 'heliusapikey' ||
+               typeLC.includes('helius');
+      });
       console.log('HeliusIndexerNodeConfig: Filtered Helius credentials:', heliusCreds);
       
       if (heliusCreds.length === 0 && allCreds.length > 0) {
         console.warn('⚠️ No Helius credentials found. Available types:', allCreds.map(c => c.type));
-        toast.error('No Helius credentials found. Please create one with type "Helius API Key"');
       }
       
       setCredentials(heliusCreds);
@@ -84,7 +85,7 @@ export function HeliusIndexerNodeConfig({ node, onUpdate }: HeliusIndexerNodeCon
   };
 
   const handleChange = (field: string, value: any) => {
-    const userId = localStorage.getItem('userId');
+    const userId = localStorage.getItem('user_id');
     const newData = { 
       ...localData, 
       [field]: value,

@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { Node } from 'reactflow';
 import { AlertCircle, Copy, CheckCircle2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useWallet, useAnchorWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useParams } from 'react-router-dom';
 import api from '../../../api/client';
+import { createEscrowTransaction } from '../../../utils/transactions/escrowTransactions';
 
 interface EscrowNodeConfigProps {
   node: Node;
@@ -14,6 +15,7 @@ interface EscrowNodeConfigProps {
 
 export default function EscrowNodeConfig({ node, onUpdate }: EscrowNodeConfigProps) {
   const { publicKey, connected } = useWallet();
+  const anchorWallet = useAnchorWallet();
   const { flowId } = useParams<{ flowId: string }>();
   
   const [action, setAction] = useState(node.data.action || 'create');
@@ -99,7 +101,7 @@ export default function EscrowNodeConfig({ node, onUpdate }: EscrowNodeConfigPro
   };
 
   const handleCreateProposal = async () => {
-    if (!connected || !publicKey) {
+    if (!connected || !publicKey || !anchorWallet) {
       toast.error('Please connect your wallet first');
       return;
     }
@@ -110,10 +112,28 @@ export default function EscrowNodeConfig({ node, onUpdate }: EscrowNodeConfigPro
 
     setCreating(true);
     try {
+      // First, create on-chain (buyer initiates escrow)
+      toast.loading('Creating escrow on-chain...', { id: 'escrow' });
+      
+      const { signature, escrowPDA, seed } = await createEscrowTransaction({
+        wallet: anchorWallet,
+        seller,
+        amount: parseFloat(amount),
+        description,
+        disputeWindowDays,
+        arbitrator: arbitrator.trim() || undefined,
+      });
+      
+      toast.loading('Saving to database...', { id: 'escrow' });
+      
+      // Then save metadata to database
       const response = await api.post('/api/v1/proposals/escrow', {
         flowId: flowId!,
         creatorPubkey: publicKey.toString(),
-        buyer,
+        txSignature: signature,
+        escrowPDA: escrowPDA,
+        seed: seed,
+        buyer: publicKey.toString(), // Buyer is the connected wallet
         seller,
         arbitrator: arbitrator.trim() || undefined,
         amount,
@@ -124,24 +144,34 @@ export default function EscrowNodeConfig({ node, onUpdate }: EscrowNodeConfigPro
       });
 
       const { proposal } = response.data;
-      setProposalUrl(proposal.escrowUrl);
-      setProposalId(proposal.id);
+      
+      // Generate URL with the on-chain PDA
+      const escrowUrl = `${window.location.origin}/escrow/${escrowPDA}`;
+      
+      setProposalUrl(escrowUrl);
+      setProposalId(escrowPDA);
       
       // Save creator and proposal data to node for flow execution
       onUpdate({
         ...node.data,
         creator: publicKey!.toString(),
-        proposalId: proposal.id,
-        escrowUrl: proposal.escrowUrl
+        proposalId: escrowPDA,
+        escrowUrl: escrowUrl,
+        escrowPDA: escrowPDA,
+        txSignature: signature,
       });
       
-      toast.success('Escrow account created successfully!');
+      toast.success('Escrow created on-chain!', { id: 'escrow' });
       if (notifyEmail.trim() || notifyTelegram.trim()) {
         toast.info('Notifications sent to recipients');
       }
     } catch (error: any) {
       console.error('Failed to create escrow:', error);
-      toast.error(error.response?.data?.error || 'Failed to create escrow');
+      if (error.message?.includes('User rejected')) {
+        toast.error('Transaction rejected', { id: 'escrow' });
+      } else {
+        toast.error(error.response?.data?.error || error.message || 'Failed to create escrow', { id: 'escrow' });
+      }
     } finally {
       setCreating(false);
     }

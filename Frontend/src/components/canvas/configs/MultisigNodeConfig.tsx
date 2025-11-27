@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { Node } from 'reactflow';
 import { Plus, X, AlertCircle, Copy, CheckCircle2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useWallet, useAnchorWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useParams } from 'react-router-dom';
 import api from '../../../api/client';
+import { createMultisigTransaction } from '../../../utils/transactions/multisigTransactions';
 
 interface MultisigNodeConfigProps {
   node: Node;
@@ -14,6 +15,7 @@ interface MultisigNodeConfigProps {
 
 export default function MultisigNodeConfig({ node, onUpdate }: MultisigNodeConfigProps) {
   const { publicKey, connected } = useWallet();
+  const anchorWallet = useAnchorWallet();
   const { flowId } = useParams<{ flowId: string }>();
   
   const [action, setAction] = useState(node.data.action || 'create');
@@ -74,7 +76,7 @@ export default function MultisigNodeConfig({ node, onUpdate }: MultisigNodeConfi
   };
 
   const handleCreateProposal = async () => {
-    if (!connected || !publicKey) {
+    if (!connected || !publicKey || !anchorWallet) {
       toast.error('Please connect your wallet first');
       return;
     }
@@ -86,36 +88,65 @@ export default function MultisigNodeConfig({ node, onUpdate }: MultisigNodeConfi
     setCreating(true);
     try {
       const validOwners = owners.filter(o => o.trim());
-      const response = await api.post('/api/v1/proposals/multisig', {
-        flowId: flowId!,
-        creatorPubkey: publicKey.toString(),
+      const expiresAtTimestamp = Math.floor(Date.now() / 1000) + expiresIn;
+      
+      // First, create on-chain
+      toast.loading('Creating multisig proposal on-chain...', { id: 'multisig' });
+      
+      const { signature, multisigPDA, seed } = await createMultisigTransaction({
+        wallet: anchorWallet,
         owners: validOwners,
         threshold,
         description,
-        expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
+        expiresAt: expiresAtTimestamp,
+      });
+      
+      toast.loading('Saving to database...', { id: 'multisig' });
+      
+      // Then save metadata to database
+      const response = await api.post('/api/v1/proposals/multisig', {
+        flowId: flowId!,
+        creatorPubkey: publicKey.toString(),
+        txSignature: signature,
+        multisigPDA: multisigPDA,
+        seed: seed,
+        owners: validOwners,
+        threshold,
+        description,
+        expiresAt: new Date(expiresAtTimestamp * 1000).toISOString(),
         notifyEmail: notifyEmail.trim() || undefined,
         notifyTelegram: notifyTelegram.trim() || undefined,
       });
 
       const { proposal } = response.data;
-      setProposalUrl(proposal.signingUrl);
-      setProposalId(proposal.id);
+      
+      // Generate URL with the on-chain PDA
+      const signingUrl = `${window.location.origin}/sign/multisig/${multisigPDA}`;
+      
+      setProposalUrl(signingUrl);
+      setProposalId(multisigPDA);
       
       // Save creator and proposal data to node for flow execution
       onUpdate({
         ...node.data,
         creator: publicKey!.toString(),
-        proposalId: proposal.id,
-        signingUrl: proposal.signingUrl
+        proposalId: multisigPDA,
+        signingUrl: signingUrl,
+        multisigPDA: multisigPDA,
+        txSignature: signature,
       });
       
-      toast.success('Multisig proposal created successfully!');
+      toast.success('Multisig proposal created on-chain!', { id: 'multisig' });
       if (notifyEmail.trim() || notifyTelegram.trim()) {
         toast.info('Notifications sent to recipients');
       }
     } catch (error: any) {
       console.error('Failed to create proposal:', error);
-      toast.error(error.response?.data?.error || 'Failed to create proposal');
+      if (error.message?.includes('User rejected')) {
+        toast.error('Transaction rejected', { id: 'multisig' });
+      } else {
+        toast.error(error.response?.data?.error || error.message || 'Failed to create proposal', { id: 'multisig' });
+      }
     } finally {
       setCreating(false);
     }

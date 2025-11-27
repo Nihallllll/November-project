@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useWallet, useAnchorWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { CheckCircle2, XCircle, Clock, AlertCircle, Loader2, TrendingUp } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, AlertCircle, Loader2, TrendingUp, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 import { format } from 'date-fns';
+import { castVoteTransaction, fetchVotingAccount } from '../../utils/transactions/votingTransactions';
 
 interface VotingProposal {
   id: string;
@@ -21,6 +22,7 @@ interface VotingProposal {
   status: string;
   expiresAt: string;
   createdAt: string;
+  onChain?: boolean;
 }
 
 const API_BASE_URL = (import.meta.env?.VITE_API_URL as string) || 'http://localhost:3000';
@@ -28,18 +30,28 @@ const API_BASE_URL = (import.meta.env?.VITE_API_URL as string) || 'http://localh
 export default function VotingPage() {
   const { id } = useParams<{ id: string }>();
   const { publicKey, connected } = useWallet();
+  const anchorWallet = useAnchorWallet();
   
   const [proposal, setProposal] = useState<VotingProposal | null>(null);
+  const [onChainData, setOnChainData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [txSignature, setTxSignature] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
       fetchProposal();
     }
   }, [id]);
+
+  // Fetch on-chain data when wallet connects
+  useEffect(() => {
+    if (id && anchorWallet) {
+      fetchOnChainData();
+    }
+  }, [id, anchorWallet]);
 
   const fetchProposal = async () => {
     try {
@@ -56,16 +68,31 @@ export default function VotingPage() {
     }
   };
 
+  const fetchOnChainData = async () => {
+    if (!anchorWallet || !id) return;
+    try {
+      const data = await fetchVotingAccount(id, anchorWallet);
+      if (data) {
+        console.log('On-chain voting data:', data);
+        setOnChainData(data);
+      }
+    } catch (err) {
+      console.log('No on-chain data found (may be database-only proposal)');
+    }
+  };
+
   const handleVote = async () => {
     if (!publicKey || !proposal || selectedChoice === null) return;
 
-    // Check if user is allowed to vote
-    if (proposal.allowedVoters && !proposal.allowedVoters.includes(publicKey.toString())) {
+    // Check if user is allowed to vote (from on-chain or database)
+    const allowedVoters = onChainData?.allowedVoters || proposal.allowedVoters;
+    if (allowedVoters && !allowedVoters.includes(publicKey.toString())) {
       toast.error('You are not eligible to vote in this proposal');
       return;
     }
 
-    if (proposal.voters.includes(publicKey.toString())) {
+    const voters = onChainData?.voters || proposal.voters;
+    if (voters.includes(publicKey.toString())) {
       toast.error('You have already voted');
       return;
     }
@@ -73,30 +100,72 @@ export default function VotingPage() {
     try {
       setSubmitting(true);
       
-      await axios.post(`${API_BASE_URL}/api/voting/${id}/vote`, {
-        voter: publicKey.toString(),
-        choiceIndex: selectedChoice,
-      });
-
-      toast.success('Vote cast successfully!');
+      // Try on-chain voting first if we have anchor wallet
+      if (anchorWallet && onChainData) {
+        toast.loading('Submitting vote on-chain...', { id: 'vote' });
+        
+        const signature = await castVoteTransaction({
+          wallet: anchorWallet,
+          votingPDA: id!,
+          choiceIndex: selectedChoice,
+        });
+        
+        setTxSignature(signature);
+        toast.success('Vote cast on-chain!', { id: 'vote' });
+        
+        // Also update database
+        await axios.post(`${API_BASE_URL}/api/voting/${id}/vote`, {
+          voter: publicKey.toString(),
+          choiceIndex: selectedChoice,
+          txSignature: signature,
+        });
+        
+        // Refresh both data sources
+        await Promise.all([fetchProposal(), fetchOnChainData()]);
+      } else {
+        // Fallback to database-only voting
+        toast.loading('Submitting vote...', { id: 'vote' });
+        
+        await axios.post(`${API_BASE_URL}/api/voting/${id}/vote`, {
+          voter: publicKey.toString(),
+          choiceIndex: selectedChoice,
+        });
+        
+        toast.success('Vote cast successfully!', { id: 'vote' });
+        await fetchProposal();
+      }
       
-      // Refresh proposal data
-      await fetchProposal();
       setSelectedChoice(null);
     } catch (err: any) {
       console.error('Failed to vote:', err);
-      toast.error(err.response?.data?.message || 'Failed to cast vote');
+      
+      if (err.message?.includes('User rejected')) {
+        toast.error('Transaction rejected', { id: 'vote' });
+      } else if (err.message?.includes('AlreadyVoted')) {
+        toast.error('You have already voted', { id: 'vote' });
+      } else if (err.message?.includes('FlowExpired')) {
+        toast.error('Voting has expired', { id: 'vote' });
+      } else if (err.message?.includes('VoterNotAllowed')) {
+        toast.error('You are not allowed to vote', { id: 'vote' });
+      } else {
+        toast.error(err.response?.data?.message || err.message || 'Failed to cast vote', { id: 'vote' });
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
+  // Use on-chain data if available, otherwise use database
+  const displayData = onChainData || proposal;
+  const voteCounts = onChainData?.voteCounts || proposal?.voteCounts || [];
+  const voters = onChainData?.voters || proposal?.voters || [];
+  
   const isExpired = proposal && new Date(proposal.expiresAt) < new Date();
-  const isRestricted = proposal?.allowedVoters && proposal.allowedVoters.length > 0;
+  const isRestricted = displayData?.allowedVoters && displayData.allowedVoters.length > 0;
   const canVote = connected && publicKey && (
-    !isRestricted || proposal.allowedVoters!.includes(publicKey.toString())
+    !isRestricted || displayData.allowedVoters!.includes(publicKey.toString())
   );
-  const hasVoted = publicKey && proposal?.voters.includes(publicKey.toString());
+  const hasVoted = publicKey && voters.includes(publicKey.toString());
   
   const totalVotes = proposal?.voteCounts.reduce((sum, count) => sum + count, 0) || 0;
 
@@ -272,6 +341,16 @@ export default function VotingPage() {
               <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-green-500" />
               <p className="font-semibold mb-2">Vote Recorded</p>
               <p className="text-sm text-muted-foreground">Thank you for participating!</p>
+              {txSignature && (
+                <a
+                  href={`https://explorer.solana.com/tx/${txSignature}?cluster=devnet`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 mt-3 text-primary hover:underline text-sm"
+                >
+                  View on Explorer <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
             </div>
           ) : isExpired || proposal.finalized ? (
             <div className="glass border border-border/50 rounded-lg p-6 text-center">

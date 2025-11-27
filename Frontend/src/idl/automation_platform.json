@@ -1,0 +1,1397 @@
+{
+  "address": "DTWoezuJiHHMUkQJh6QNVyeFt7EYbMB1n1gUMFFVvAUz",
+  "metadata": {
+    "name": "automation_platform",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Automation Platform - Voting, Multisig, Escrow"
+  },
+  "instructions": [
+    {
+      "name": "approve_flow",
+      "discriminator": [
+        26,
+        175,
+        197,
+        234,
+        243,
+        36,
+        49,
+        232
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "flow",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "auto_release",
+      "discriminator": [
+        212,
+        34,
+        30,
+        246,
+        192,
+        13,
+        97,
+        31
+      ],
+      "accounts": [
+        {
+          "name": "caller",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "flow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "flow.buyer",
+                "account": "EscrowFlow"
+              },
+              {
+                "kind": "account",
+                "path": "flow.seed",
+                "account": "EscrowFlow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "seller",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "buyer_approve",
+      "discriminator": [
+        190,
+        210,
+        145,
+        24,
+        118,
+        13,
+        28,
+        165
+      ],
+      "accounts": [
+        {
+          "name": "buyer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "flow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "buyer"
+              },
+              {
+                "kind": "account",
+                "path": "flow.seed",
+                "account": "EscrowFlow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "seller",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "cast_vote",
+      "discriminator": [
+        20,
+        212,
+        15,
+        189,
+        69,
+        180,
+        69,
+        151
+      ],
+      "accounts": [
+        {
+          "name": "voter",
+          "signer": true
+        },
+        {
+          "name": "flow",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "choice_index",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "finalize_voting",
+      "discriminator": [
+        195,
+        61,
+        27,
+        72,
+        252,
+        138,
+        175,
+        13
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "flow",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize_escrow",
+      "discriminator": [
+        243,
+        160,
+        77,
+        153,
+        11,
+        92,
+        48,
+        209
+      ],
+      "accounts": [
+        {
+          "name": "buyer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "flow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "buyer"
+              },
+              {
+                "kind": "arg",
+                "path": "seed"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "seller",
+          "type": "pubkey"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "description",
+          "type": "string"
+        },
+        {
+          "name": "dispute_window_days",
+          "type": "u8"
+        },
+        {
+          "name": "arbitrator",
+          "type": {
+            "option": "pubkey"
+          }
+        },
+        {
+          "name": "seed",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "initialize_multisig_flow",
+      "discriminator": [
+        122,
+        232,
+        139,
+        97,
+        207,
+        119,
+        145,
+        117
+      ],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "flow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  117,
+                  108,
+                  116,
+                  105,
+                  115,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              },
+              {
+                "kind": "arg",
+                "path": "seed"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "owners",
+          "type": {
+            "vec": "pubkey"
+          }
+        },
+        {
+          "name": "threshold",
+          "type": "u8"
+        },
+        {
+          "name": "description",
+          "type": "string"
+        },
+        {
+          "name": "seed",
+          "type": "u64"
+        },
+        {
+          "name": "expires_at",
+          "type": {
+            "option": "i64"
+          }
+        }
+      ]
+    },
+    {
+      "name": "initialize_voting_flow",
+      "discriminator": [
+        8,
+        25,
+        190,
+        28,
+        169,
+        165,
+        149,
+        75
+      ],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "flow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  111,
+                  116,
+                  105,
+                  110,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              },
+              {
+                "kind": "arg",
+                "path": "seed"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "choices",
+          "type": {
+            "vec": "string"
+          }
+        },
+        {
+          "name": "seed",
+          "type": "u64"
+        },
+        {
+          "name": "expires_at",
+          "type": {
+            "option": "i64"
+          }
+        },
+        {
+          "name": "allowed_voters",
+          "type": {
+            "option": {
+              "vec": "pubkey"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "mark_delivered",
+      "discriminator": [
+        240,
+        118,
+        188,
+        142,
+        64,
+        85,
+        107,
+        18
+      ],
+      "accounts": [
+        {
+          "name": "seller",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "flow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "flow.buyer",
+                "account": "EscrowFlow"
+              },
+              {
+                "kind": "account",
+                "path": "flow.seed",
+                "account": "EscrowFlow"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "raise_dispute",
+      "discriminator": [
+        41,
+        243,
+        1,
+        51,
+        150,
+        95,
+        246,
+        73
+      ],
+      "accounts": [
+        {
+          "name": "disputer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "flow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "flow.buyer",
+                "account": "EscrowFlow"
+              },
+              {
+                "kind": "account",
+                "path": "flow.seed",
+                "account": "EscrowFlow"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "reason",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "reject_flow",
+      "discriminator": [
+        240,
+        148,
+        91,
+        60,
+        227,
+        238,
+        63,
+        250
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "flow",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "resolve_dispute",
+      "discriminator": [
+        231,
+        6,
+        202,
+        6,
+        96,
+        103,
+        12,
+        230
+      ],
+      "accounts": [
+        {
+          "name": "arbitrator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "flow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "flow.buyer",
+                "account": "EscrowFlow"
+              },
+              {
+                "kind": "account",
+                "path": "flow.seed",
+                "account": "EscrowFlow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "winner",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "winner_is_buyer",
+          "type": "bool"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "EscrowFlow",
+      "discriminator": [
+        50,
+        201,
+        47,
+        194,
+        230,
+        34,
+        97,
+        104
+      ]
+    },
+    {
+      "name": "MultisigFlow",
+      "discriminator": [
+        247,
+        97,
+        49,
+        136,
+        245,
+        78,
+        242,
+        125
+      ]
+    },
+    {
+      "name": "VotingFlow",
+      "discriminator": [
+        252,
+        151,
+        188,
+        207,
+        214,
+        188,
+        17,
+        56
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "EscrowCreated",
+      "discriminator": [
+        70,
+        127,
+        105,
+        102,
+        92,
+        97,
+        7,
+        173
+      ]
+    },
+    {
+      "name": "EscrowDelivered",
+      "discriminator": [
+        181,
+        195,
+        202,
+        214,
+        106,
+        51,
+        220,
+        208
+      ]
+    },
+    {
+      "name": "EscrowDisputed",
+      "discriminator": [
+        132,
+        73,
+        81,
+        200,
+        177,
+        51,
+        128,
+        18
+      ]
+    },
+    {
+      "name": "EscrowResolved",
+      "discriminator": [
+        91,
+        111,
+        193,
+        4,
+        183,
+        36,
+        78,
+        31
+      ]
+    },
+    {
+      "name": "FlowTriggered",
+      "discriminator": [
+        76,
+        11,
+        149,
+        218,
+        48,
+        209,
+        141,
+        200
+      ]
+    },
+    {
+      "name": "MultisigFlowRejected",
+      "discriminator": [
+        160,
+        32,
+        12,
+        174,
+        101,
+        52,
+        246,
+        178
+      ]
+    },
+    {
+      "name": "MultisigThresholdMet",
+      "discriminator": [
+        197,
+        231,
+        209,
+        157,
+        157,
+        114,
+        213,
+        240
+      ]
+    },
+    {
+      "name": "VoteCompleted",
+      "discriminator": [
+        145,
+        208,
+        159,
+        30,
+        38,
+        206,
+        47,
+        175
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "NotOwner",
+      "msg": "Not an owner of this flow"
+    },
+    {
+      "code": 6001,
+      "name": "AlreadyVoted",
+      "msg": "Already voted on this flow"
+    },
+    {
+      "code": 6002,
+      "name": "FlowExpired",
+      "msg": "Flow has expired"
+    },
+    {
+      "code": 6003,
+      "name": "FlowNotExpired",
+      "msg": "Flow has not expired yet"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidPythFeed",
+      "msg": "Invalid Pyth price feed"
+    },
+    {
+      "code": 6005,
+      "name": "PriceOutOfRange",
+      "msg": "Price is out of acceptable range"
+    },
+    {
+      "code": 6006,
+      "name": "InvalidPool",
+      "msg": "Invalid pool address"
+    },
+    {
+      "code": 6007,
+      "name": "ThresholdNotMet",
+      "msg": "Threshold not met"
+    },
+    {
+      "code": 6008,
+      "name": "TooManyOwners",
+      "msg": "Too many owners (max 10)"
+    },
+    {
+      "code": 6009,
+      "name": "InvalidThreshold",
+      "msg": "Threshold exceeds number of owners"
+    },
+    {
+      "code": 6010,
+      "name": "TooManyChoices",
+      "msg": "Too many choices (max 10)"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidChoiceIndex",
+      "msg": "Invalid choice index"
+    },
+    {
+      "code": 6012,
+      "name": "VoterNotAllowed",
+      "msg": "Voter not allowed"
+    },
+    {
+      "code": 6013,
+      "name": "VotingAlreadyFinalized",
+      "msg": "Voting already finalized"
+    },
+    {
+      "code": 6014,
+      "name": "DescriptionTooLong",
+      "msg": "Description too long (max 512 bytes)"
+    },
+    {
+      "code": 6015,
+      "name": "MathOverflow",
+      "msg": "Mathematical overflow"
+    },
+    {
+      "code": 6016,
+      "name": "FlowAlreadyTriggered",
+      "msg": "Flow has already been triggered/executed"
+    },
+    {
+      "code": 6017,
+      "name": "ThresholdTooHigh",
+      "msg": "Threshold is too high"
+    },
+    {
+      "code": 6018,
+      "name": "ThresholdTooLow",
+      "msg": "Threshold is too low (must be at least 1)"
+    },
+    {
+      "code": 6019,
+      "name": "InvalidAmount",
+      "msg": "Invalid amount (must be greater than 0)"
+    },
+    {
+      "code": 6020,
+      "name": "InvalidTime",
+      "msg": "Invalid time (must be in the future)"
+    },
+    {
+      "code": 6021,
+      "name": "Unauthorized",
+      "msg": "Unauthorized action"
+    },
+    {
+      "code": 6022,
+      "name": "InvalidEscrowState",
+      "msg": "Invalid escrow state for this operation"
+    },
+    {
+      "code": 6023,
+      "name": "InvalidDisputeWindow",
+      "msg": "Invalid dispute window (must be 1-30 days)"
+    },
+    {
+      "code": 6024,
+      "name": "BuyerCannotBeSeller",
+      "msg": "Buyer and seller cannot be the same"
+    },
+    {
+      "code": 6025,
+      "name": "DisputeWindowExpired",
+      "msg": "Dispute window has expired"
+    },
+    {
+      "code": 6026,
+      "name": "DisputeWindowNotExpired",
+      "msg": "Dispute window has not expired yet"
+    },
+    {
+      "code": 6027,
+      "name": "NoArbitratorSet",
+      "msg": "No arbitrator set for this escrow"
+    },
+    {
+      "code": 6028,
+      "name": "DisputeReasonTooLong",
+      "msg": "Dispute reason too long (max 500 chars)"
+    },
+    {
+      "code": 6029,
+      "name": "InvalidWinner",
+      "msg": "Invalid winner address"
+    },
+    {
+      "code": 6030,
+      "name": "NotDelivered",
+      "msg": "Escrow not yet delivered"
+    },
+    {
+      "code": 6031,
+      "name": "InvalidSeller",
+      "msg": "Invalid seller address"
+    }
+  ],
+  "types": [
+    {
+      "name": "EscrowCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "flow",
+            "type": "pubkey"
+          },
+          {
+            "name": "buyer",
+            "type": "pubkey"
+          },
+          {
+            "name": "seller",
+            "type": "pubkey"
+          },
+          {
+            "name": "arbitrator",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "name": "dispute_window_days",
+            "type": "u8"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EscrowDelivered",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "flow",
+            "type": "pubkey"
+          },
+          {
+            "name": "seller",
+            "type": "pubkey"
+          },
+          {
+            "name": "delivered_at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EscrowDisputed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "flow",
+            "type": "pubkey"
+          },
+          {
+            "name": "disputer",
+            "type": "pubkey"
+          },
+          {
+            "name": "reason",
+            "type": "string"
+          },
+          {
+            "name": "disputed_at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EscrowFlow",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "buyer",
+            "type": "pubkey"
+          },
+          {
+            "name": "seller",
+            "type": "pubkey"
+          },
+          {
+            "name": "arbitrator",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "name": "dispute_window_days",
+            "type": "u8"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "EscrowStatus"
+              }
+            }
+          },
+          {
+            "name": "seller_delivered",
+            "type": "bool"
+          },
+          {
+            "name": "seller_delivered_at",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "buyer_approved",
+            "type": "bool"
+          },
+          {
+            "name": "disputed",
+            "type": "bool"
+          },
+          {
+            "name": "dispute_raised_at",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "dispute_reason",
+            "type": {
+              "option": "string"
+            }
+          },
+          {
+            "name": "winner",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "decided_at",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "seed",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EscrowResolved",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "flow",
+            "type": "pubkey"
+          },
+          {
+            "name": "winner",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "resolved_at",
+            "type": "i64"
+          },
+          {
+            "name": "reason",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EscrowStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Created"
+          },
+          {
+            "name": "SellerDelivered"
+          },
+          {
+            "name": "BuyerApproved"
+          },
+          {
+            "name": "Disputed"
+          },
+          {
+            "name": "Resolved"
+          },
+          {
+            "name": "Cancelled"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FlowTriggered",
+      "docs": [
+        "Generic flow triggered event for uniform consumption"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "flow",
+            "type": "pubkey"
+          },
+          {
+            "name": "flow_type",
+            "type": "string"
+          },
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MultisigFlow",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "owners",
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "threshold",
+            "type": "u8"
+          },
+          {
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "name": "approvals",
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "rejections",
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "executed",
+            "type": "bool"
+          },
+          {
+            "name": "expires_at",
+            "type": "i64"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MultisigFlowRejected",
+      "docs": [
+        "Multisig flow rejected event"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "flow",
+            "type": "pubkey"
+          },
+          {
+            "name": "rejector",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MultisigThresholdMet",
+      "docs": [
+        "Multisig threshold met event"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "flow",
+            "type": "pubkey"
+          },
+          {
+            "name": "approvers",
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VoteCompleted",
+      "docs": [
+        "Vote completed event"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "flow",
+            "type": "pubkey"
+          },
+          {
+            "name": "results",
+            "type": {
+              "vec": "u32"
+            }
+          },
+          {
+            "name": "winner_index",
+            "type": {
+              "option": "u8"
+            }
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VotingFlow",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "choices",
+            "type": {
+              "vec": "string"
+            }
+          },
+          {
+            "name": "vote_counts",
+            "type": {
+              "vec": "u32"
+            }
+          },
+          {
+            "name": "allowed_voters",
+            "type": {
+              "option": {
+                "vec": "pubkey"
+              }
+            }
+          },
+          {
+            "name": "voters",
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "finalized",
+            "type": "bool"
+          },
+          {
+            "name": "winner_index",
+            "type": {
+              "option": "u8"
+            }
+          },
+          {
+            "name": "expires_at",
+            "type": "i64"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}

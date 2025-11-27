@@ -1,14 +1,22 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useWallet, useAnchorWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { 
   CheckCircle2, XCircle, Clock, AlertCircle, Loader2, 
-  Package, DollarSign, Shield, User 
+  Package, DollarSign, Shield, User, ExternalLink 
 } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 import { format, addDays, differenceInDays } from 'date-fns';
+import { 
+  markDeliveredTransaction, 
+  buyerApproveTransaction, 
+  raiseDisputeTransaction, 
+  resolveDisputeTransaction, 
+  autoReleaseTransaction,
+  fetchEscrowAccount 
+} from '../../utils/transactions/escrowTransactions';
 
 interface EscrowAccount {
   id: string;
@@ -28,6 +36,8 @@ interface EscrowAccount {
   winner: string | null;
   decidedAt: string | null;
   createdAt: string;
+  seed?: string;
+  onChain?: boolean;
 }
 
 const API_BASE_URL = (import.meta.env?.VITE_API_URL as string) || 'http://localhost:3000';
@@ -35,18 +45,28 @@ const API_BASE_URL = (import.meta.env?.VITE_API_URL as string) || 'http://localh
 export default function EscrowPage() {
   const { id } = useParams<{ id: string }>();
   const { publicKey, connected } = useWallet();
+  const anchorWallet = useAnchorWallet();
   
   const [escrow, setEscrow] = useState<EscrowAccount | null>(null);
+  const [onChainData, setOnChainData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [disputeReason, setDisputeReason] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [txSignature, setTxSignature] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
       fetchEscrow();
     }
   }, [id]);
+
+  // Fetch on-chain data when wallet connects
+  useEffect(() => {
+    if (id && anchorWallet) {
+      fetchOnChainData();
+    }
+  }, [id, anchorWallet]);
 
   const fetchEscrow = async () => {
     try {
@@ -63,19 +83,60 @@ export default function EscrowPage() {
     }
   };
 
+  const fetchOnChainData = async () => {
+    if (!anchorWallet || !id) return;
+    try {
+      const data = await fetchEscrowAccount(id, anchorWallet);
+      if (data) {
+        console.log('On-chain escrow data:', data);
+        setOnChainData(data);
+      }
+    } catch (err) {
+      console.log('No on-chain data found (may be database-only escrow)');
+    }
+  };
+
   const handleMarkDelivered = async () => {
     if (!publicKey || !escrow) return;
 
     try {
       setSubmitting(true);
-      await axios.post(`${API_BASE_URL}/api/escrow/${id}/delivered`, {
-        seller: publicKey.toString(),
-      });
-      toast.success('Marked as delivered!');
-      await fetchEscrow();
+      
+      if (anchorWallet && onChainData) {
+        toast.loading('Marking delivered on-chain...', { id: 'delivered' });
+        
+        const signature = await markDeliveredTransaction({
+          wallet: anchorWallet,
+          escrowPDA: id!,
+          buyerPubkey: escrow.buyer,
+          seed: onChainData.seed,
+        });
+        
+        setTxSignature(signature);
+        toast.success('Marked as delivered on-chain!', { id: 'delivered' });
+        
+        // Update database
+        await axios.post(`${API_BASE_URL}/api/escrow/${id}/delivered`, {
+          seller: publicKey.toString(),
+          txSignature: signature,
+        });
+        
+        await Promise.all([fetchEscrow(), fetchOnChainData()]);
+      } else {
+        toast.loading('Marking as delivered...', { id: 'delivered' });
+        await axios.post(`${API_BASE_URL}/api/escrow/${id}/delivered`, {
+          seller: publicKey.toString(),
+        });
+        toast.success('Marked as delivered!', { id: 'delivered' });
+        await fetchEscrow();
+      }
     } catch (err: any) {
       console.error('Failed to mark delivered:', err);
-      toast.error(err.response?.data?.message || 'Failed to mark as delivered');
+      if (err.message?.includes('User rejected')) {
+        toast.error('Transaction rejected', { id: 'delivered' });
+      } else {
+        toast.error(err.response?.data?.message || err.message || 'Failed to mark as delivered', { id: 'delivered' });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -86,14 +147,41 @@ export default function EscrowPage() {
 
     try {
       setSubmitting(true);
-      await axios.post(`${API_BASE_URL}/api/escrow/${id}/approve`, {
-        buyer: publicKey.toString(),
-      });
-      toast.success('Approved! Funds released to seller.');
-      await fetchEscrow();
+      
+      if (anchorWallet && onChainData) {
+        toast.loading('Approving on-chain...', { id: 'approve' });
+        
+        const signature = await buyerApproveTransaction({
+          wallet: anchorWallet,
+          escrowPDA: id!,
+          sellerPubkey: escrow.seller,
+        });
+        
+        setTxSignature(signature);
+        toast.success('Approved! Funds released on-chain!', { id: 'approve' });
+        
+        // Update database
+        await axios.post(`${API_BASE_URL}/api/escrow/${id}/approve`, {
+          buyer: publicKey.toString(),
+          txSignature: signature,
+        });
+        
+        await Promise.all([fetchEscrow(), fetchOnChainData()]);
+      } else {
+        toast.loading('Approving...', { id: 'approve' });
+        await axios.post(`${API_BASE_URL}/api/escrow/${id}/approve`, {
+          buyer: publicKey.toString(),
+        });
+        toast.success('Approved! Funds released to seller.', { id: 'approve' });
+        await fetchEscrow();
+      }
     } catch (err: any) {
       console.error('Failed to approve:', err);
-      toast.error(err.response?.data?.message || 'Failed to approve');
+      if (err.message?.includes('User rejected')) {
+        toast.error('Transaction rejected', { id: 'approve' });
+      } else {
+        toast.error(err.response?.data?.message || err.message || 'Failed to approve', { id: 'approve' });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -107,16 +195,45 @@ export default function EscrowPage() {
 
     try {
       setSubmitting(true);
-      await axios.post(`${API_BASE_URL}/api/escrow/${id}/dispute`, {
-        disputer: publicKey.toString(),
-        disputeReason: disputeReason,
-      });
-      toast.success('Dispute raised');
-      await fetchEscrow();
-      setDisputeReason('');
+      
+      if (anchorWallet && onChainData) {
+        toast.loading('Raising dispute on-chain...', { id: 'dispute' });
+        
+        const signature = await raiseDisputeTransaction({
+          wallet: anchorWallet,
+          escrowPDA: id!,
+          reason: disputeReason,
+        });
+        
+        setTxSignature(signature);
+        toast.success('Dispute raised on-chain!', { id: 'dispute' });
+        
+        // Update database
+        await axios.post(`${API_BASE_URL}/api/escrow/${id}/dispute`, {
+          disputer: publicKey.toString(),
+          disputeReason: disputeReason,
+          txSignature: signature,
+        });
+        
+        await Promise.all([fetchEscrow(), fetchOnChainData()]);
+        setDisputeReason('');
+      } else {
+        toast.loading('Raising dispute...', { id: 'dispute' });
+        await axios.post(`${API_BASE_URL}/api/escrow/${id}/dispute`, {
+          disputer: publicKey.toString(),
+          disputeReason: disputeReason,
+        });
+        toast.success('Dispute raised', { id: 'dispute' });
+        await fetchEscrow();
+        setDisputeReason('');
+      }
     } catch (err: any) {
       console.error('Failed to raise dispute:', err);
-      toast.error(err.response?.data?.message || 'Failed to raise dispute');
+      if (err.message?.includes('User rejected')) {
+        toast.error('Transaction rejected', { id: 'dispute' });
+      } else {
+        toast.error(err.response?.data?.message || err.message || 'Failed to raise dispute', { id: 'dispute' });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -127,15 +244,46 @@ export default function EscrowPage() {
 
     try {
       setSubmitting(true);
-      await axios.post(`${API_BASE_URL}/api/escrow/${id}/resolve`, {
-        arbitrator: publicKey.toString(),
-        winnerIsBuyer: buyerWins,
-      });
-      toast.success(`Resolved in favor of ${buyerWins ? 'buyer' : 'seller'}`);
-      await fetchEscrow();
+      
+      if (anchorWallet && onChainData) {
+        toast.loading('Resolving dispute on-chain...', { id: 'resolve' });
+        
+        const winnerPubkey = buyerWins ? escrow.buyer : escrow.seller;
+        
+        const signature = await resolveDisputeTransaction({
+          wallet: anchorWallet,
+          escrowPDA: id!,
+          winnerIsBuyer: buyerWins,
+          winnerPubkey: winnerPubkey,
+        });
+        
+        setTxSignature(signature);
+        toast.success(`Resolved in favor of ${buyerWins ? 'buyer' : 'seller'}!`, { id: 'resolve' });
+        
+        // Update database
+        await axios.post(`${API_BASE_URL}/api/escrow/${id}/resolve`, {
+          arbitrator: publicKey.toString(),
+          winnerIsBuyer: buyerWins,
+          txSignature: signature,
+        });
+        
+        await Promise.all([fetchEscrow(), fetchOnChainData()]);
+      } else {
+        toast.loading('Resolving dispute...', { id: 'resolve' });
+        await axios.post(`${API_BASE_URL}/api/escrow/${id}/resolve`, {
+          arbitrator: publicKey.toString(),
+          winnerIsBuyer: buyerWins,
+        });
+        toast.success(`Resolved in favor of ${buyerWins ? 'buyer' : 'seller'}`, { id: 'resolve' });
+        await fetchEscrow();
+      }
     } catch (err: any) {
       console.error('Failed to resolve:', err);
-      toast.error(err.response?.data?.message || 'Failed to resolve dispute');
+      if (err.message?.includes('User rejected')) {
+        toast.error('Transaction rejected', { id: 'resolve' });
+      } else {
+        toast.error(err.response?.data?.message || err.message || 'Failed to resolve dispute', { id: 'resolve' });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -146,12 +294,38 @@ export default function EscrowPage() {
 
     try {
       setSubmitting(true);
-      await axios.post(`${API_BASE_URL}/api/escrow/${id}/auto-release`);
-      toast.success('Auto-released to seller');
-      await fetchEscrow();
+      
+      if (anchorWallet && onChainData) {
+        toast.loading('Auto-releasing on-chain...', { id: 'autorelease' });
+        
+        const signature = await autoReleaseTransaction({
+          wallet: anchorWallet,
+          escrowPDA: id!,
+          sellerPubkey: escrow.seller,
+        });
+        
+        setTxSignature(signature);
+        toast.success('Auto-released to seller on-chain!', { id: 'autorelease' });
+        
+        // Update database
+        await axios.post(`${API_BASE_URL}/api/escrow/${id}/auto-release`, {
+          txSignature: signature,
+        });
+        
+        await Promise.all([fetchEscrow(), fetchOnChainData()]);
+      } else {
+        toast.loading('Auto-releasing...', { id: 'autorelease' });
+        await axios.post(`${API_BASE_URL}/api/escrow/${id}/auto-release`);
+        toast.success('Auto-released to seller', { id: 'autorelease' });
+        await fetchEscrow();
+      }
     } catch (err: any) {
       console.error('Failed to auto-release:', err);
-      toast.error(err.response?.data?.message || 'Failed to auto-release');
+      if (err.message?.includes('User rejected')) {
+        toast.error('Transaction rejected', { id: 'autorelease' });
+      } else {
+        toast.error(err.response?.data?.message || err.message || 'Failed to auto-release', { id: 'autorelease' });
+      }
     } finally {
       setSubmitting(false);
     }
