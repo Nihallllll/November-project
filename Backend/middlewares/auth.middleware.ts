@@ -34,7 +34,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
         error: 'Missing authorization header'
       });
     }
-
+    
     // Extract token from "Bearer {token}"
     const parts = authHeader.split(' ');
     

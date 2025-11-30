@@ -8,7 +8,7 @@ const router = Router();
  * POST /register (not /auth/register)
  * Mounted at /auth, so route is /register
  */
-router.post('/register', async (req: Request, res: Response) => {  // ✅ CHANGE FROM '/auth/register' to '/register'
+router.post('/register', async (req: Request, res: Response) => {  
   try {
     const { email, password } = req.body;
 

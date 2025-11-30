@@ -26,7 +26,7 @@ import type { AutomationPlatform } from '../../target/types/automation_platform'
 import IDL from '../../target/idl/automation_platform.json';
 
 // ⚠️ CRITICAL: This is the deployed program ID
-const PROGRAM_ID = new PublicKey('96rirZnPMvTp6rM28py3dGcUecjt4fnE5yGEz86PSj9z');
+const PROGRAM_ID = new PublicKey('3cxwG4X6k67rmaJzChP4sUqq8CnqMmuN6uM6bHKLRPz1');
 
 interface VotingNodeData {
   action: 'create' | 'cast_vote' | 'finalize' | 'check_results';

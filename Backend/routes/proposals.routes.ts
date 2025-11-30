@@ -9,7 +9,8 @@ import axios from 'axios';
 
 const router = Router();
 
-const PROGRAM_ID = new PublicKey('3cxwG4X6k67rmaJzChP4sUqq8CnqMmuN6uM6bHKLRPz1');
+// ✅ Correct Program ID - deployed on devnet
+const PROGRAM_ID = new PublicKey('DTWoezuJiHHMUkQJh6QNVyeFt7EYbMB1n1gUMFFVvAUz');
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 // Email transporter
@@ -53,6 +54,282 @@ async function sendEmailNotification(to: string, subject: string, html: string) 
   }
 }
 
+// ============ PUBLIC ROUTES (No auth required) ============
+
+// Get voting proposal by ID (public - for sharing)
+router.get('/voting/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const proposal = await prisma.votingProposal.findUnique({
+      where: { id },
+    });
+
+    if (!proposal) {
+      return res.status(404).json({ error: 'Voting proposal not found' });
+    }
+
+    res.json(proposal);
+  } catch (error) {
+    console.error('Error fetching voting proposal:', error);
+    res.status(500).json({ error: 'Failed to fetch voting proposal' });
+  }
+});
+
+// Cast vote on a proposal (public - anyone with the link can vote if allowed)
+router.post('/voting/:id/vote', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { voter, choiceIndex, txSignature } = req.body;
+    
+    if (!voter || choiceIndex === undefined) {
+      return res.status(400).json({ error: 'Missing voter or choiceIndex' });
+    }
+    
+    const proposal = await prisma.votingProposal.findUnique({
+      where: { id },
+    });
+
+    if (!proposal) {
+      return res.status(404).json({ error: 'Voting proposal not found' });
+    }
+
+    // Check if voting is still open
+    if (proposal.finalized) {
+      return res.status(400).json({ error: 'Voting has been finalized' });
+    }
+    
+    if (new Date(proposal.expiresAt) < new Date()) {
+      return res.status(400).json({ error: 'Voting has expired' });
+    }
+
+    // Check if voter is allowed (if restricted)
+    if (proposal.allowedVoters && proposal.allowedVoters.length > 0) {
+      if (!proposal.allowedVoters.includes(voter)) {
+        return res.status(403).json({ error: 'You are not eligible to vote' });
+      }
+    }
+
+    // Check if already voted
+    if (proposal.voters.includes(voter)) {
+      return res.status(400).json({ error: 'You have already voted' });
+    }
+
+    // Validate choice index
+    if (choiceIndex < 0 || choiceIndex >= proposal.choices.length) {
+      return res.status(400).json({ error: 'Invalid choice index' });
+    }
+
+    // Update vote counts
+    const newVoteCounts = [...proposal.voteCounts];
+    newVoteCounts[choiceIndex]! += 1;
+
+    // Update proposal
+    const updatedProposal = await prisma.votingProposal.update({
+      where: { id },
+      data: {
+        voteCounts: newVoteCounts,
+        voters: [...proposal.voters, voter],
+      },
+    });
+
+    console.log(`Vote cast: ${voter} voted for choice ${choiceIndex} on ${id}`);
+    if (txSignature) {
+      console.log(`Transaction signature: ${txSignature}`);
+    }
+
+    res.json({
+      success: true,
+      voteCounts: updatedProposal.voteCounts,
+      totalVotes: updatedProposal.voters.length,
+    });
+  } catch (error) {
+    console.error('Error casting vote:', error);
+    res.status(500).json({ error: 'Failed to cast vote' });
+  }
+});
+
+// Get multisig proposal by ID (public - for sharing)
+router.get('/multisig/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const proposal = await prisma.multisigProposal.findUnique({
+      where: { id },
+    });
+
+    if (!proposal) {
+      return res.status(404).json({ error: 'Multisig proposal not found' });
+    }
+
+    res.json(proposal);
+  } catch (error) {
+    console.error('Error fetching multisig proposal:', error);
+    res.status(500).json({ error: 'Failed to fetch multisig proposal' });
+  }
+});
+
+// Approve/Reject multisig (public)
+router.post('/multisig/:id/sign', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { signer, action, txSignature } = req.body;
+    
+    if (!signer || !action) {
+      return res.status(400).json({ error: 'Missing signer or action' });
+    }
+    
+    const proposal = await prisma.multisigProposal.findUnique({
+      where: { id },
+    });
+
+    if (!proposal) {
+      return res.status(404).json({ error: 'Multisig proposal not found' });
+    }
+
+    // Check if signer is an owner
+    if (!proposal.owners.includes(signer)) {
+      return res.status(403).json({ error: 'You are not an owner of this multisig' });
+    }
+
+    // Check if already signed
+    if (proposal.approvals.includes(signer) || proposal.rejections.includes(signer)) {
+      return res.status(400).json({ error: 'You have already signed' });
+    }
+
+    // Update based on action
+    const updateData: any = {};
+    if (action === 'approve') {
+      updateData.approvals = [...proposal.approvals, signer];
+      // Check if threshold met
+      if (updateData.approvals.length >= proposal.threshold) {
+        updateData.executed = true;
+        updateData.status = 'approved';
+      }
+    } else if (action === 'reject') {
+      updateData.rejections = [...proposal.rejections, signer];
+      updateData.executed = true;
+      updateData.status = 'rejected';
+    } else {
+      return res.status(400).json({ error: 'Invalid action' });
+    }
+
+    const updatedProposal = await prisma.multisigProposal.update({
+      where: { id },
+      data: updateData,
+    });
+
+    console.log(`Multisig signed: ${signer} ${action}ed on ${id}`);
+    if (txSignature) {
+      console.log(`Transaction signature: ${txSignature}`);
+    }
+
+    res.json({
+      success: true,
+      proposal: updatedProposal,
+    });
+  } catch (error) {
+    console.error('Error signing multisig:', error);
+    res.status(500).json({ error: 'Failed to sign multisig' });
+  }
+});
+
+// Get escrow by ID (public - for sharing)
+router.get('/escrow/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const escrow = await prisma.escrowAccount.findUnique({
+      where: { id },
+    });
+
+    if (!escrow) {
+      return res.status(404).json({ error: 'Escrow not found' });
+    }
+
+    res.json(escrow);
+  } catch (error) {
+    console.error('Error fetching escrow:', error);
+    res.status(500).json({ error: 'Failed to fetch escrow' });
+  }
+});
+
+// Update escrow status (public)
+router.post('/escrow/:id/action', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { actor, action, txSignature, reason } = req.body;
+    
+    if (!actor || !action) {
+      return res.status(400).json({ error: 'Missing actor or action' });
+    }
+    
+    const escrow = await prisma.escrowAccount.findUnique({
+      where: { id },
+    });
+
+    if (!escrow) {
+      return res.status(404).json({ error: 'Escrow not found' });
+    }
+
+    const updateData: any = {};
+    
+    switch (action) {
+      case 'mark_delivered':
+        if (actor !== escrow.seller) {
+          return res.status(403).json({ error: 'Only seller can mark as delivered' });
+        }
+        updateData.sellerDelivered = true;
+        updateData.sellerDeliveredAt = new Date();
+        updateData.status = 'delivered';
+        break;
+        
+      case 'approve':
+        if (actor !== escrow.buyer) {
+          return res.status(403).json({ error: 'Only buyer can approve' });
+        }
+        updateData.buyerApproved = true;
+        updateData.status = 'resolved';
+        updateData.winner = escrow.seller;
+        updateData.decidedAt = new Date();
+        break;
+        
+      case 'dispute':
+        if (actor !== escrow.buyer && actor !== escrow.seller) {
+          return res.status(403).json({ error: 'Only buyer or seller can dispute' });
+        }
+        updateData.disputed = true;
+        updateData.disputeRaisedAt = new Date();
+        updateData.disputeReason = reason || 'No reason provided';
+        updateData.status = 'disputed';
+        break;
+        
+      default:
+        return res.status(400).json({ error: 'Invalid action' });
+    }
+
+    const updatedEscrow = await prisma.escrowAccount.update({
+      where: { id },
+      data: updateData,
+    });
+
+    console.log(`Escrow action: ${actor} performed ${action} on ${id}`);
+    if (txSignature) {
+      console.log(`Transaction signature: ${txSignature}`);
+    }
+
+    res.json({
+      success: true,
+      escrow: updatedEscrow,
+    });
+  } catch (error) {
+    console.error('Error updating escrow:', error);
+    res.status(500).json({ error: 'Failed to update escrow' });
+  }
+});
+
+// ============ PROTECTED ROUTES (Auth required) ============
+
 // ============ MULTISIG PROPOSAL ============
 
 router.post('/multisig', authMiddleware, async (req, res) => {
@@ -67,11 +344,19 @@ router.post('/multisig', authMiddleware, async (req, res) => {
       creatorPubkey,
       notifyEmail,
       notifyTelegram,
+      // On-chain data from frontend
+      multisigPDA,
+      seed: onChainSeed,
+      txSignature,
     } = req.body;
 
     // Validation
     if (!flowId || !owners || !threshold || !description || !creatorPubkey) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    if (!multisigPDA) {
+      return res.status(400).json({ error: 'Missing on-chain multisig PDA' });
     }
 
     if (!Array.isArray(owners) || owners.length < 2 || owners.length > 10) {
@@ -82,16 +367,9 @@ router.post('/multisig', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Invalid threshold' });
     }
 
-    // Generate unique seed
-    const seed = crypto.randomBytes(16).toString('hex');
-
-    // Derive PDA address
-    const [proposalPda, bump] = PublicKey.findProgramAddressSync(
-      [Buffer.from('multisig'), Buffer.from(seed)],
-      PROGRAM_ID
-    );
-
-    const proposalId = proposalPda.toBase58();
+    // Use on-chain data from frontend
+    const proposalId = multisigPDA;
+    const seed = onChainSeed?.toString() || '';
 
     // Create database record
     const proposal = await prisma.multisigProposal.create({
@@ -109,12 +387,14 @@ router.post('/multisig', authMiddleware, async (req, res) => {
         executed: false,
         expiresAt: expiresAt ? new Date(expiresAt) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days default
         seed,
-        bump,
+        bump: 0, // We don't need the bump since we use the full PDA from frontend
         signingUrl: `${FRONTEND_URL}/sign/multisig/${proposalId}`,
         notifyEmail,
         notifyTelegram,
       },
     });
+
+    console.log(`Multisig created: ${proposalId}, tx: ${txSignature}`);
 
     // Send notifications
     if (notifyEmail) {
@@ -178,6 +458,11 @@ router.post('/voting', authMiddleware, async (req, res) => {
       creatorPubkey,
       notifyEmail,
       notifyTelegram,
+      // On-chain data from frontend
+      onChainPDA,
+      onChainSeed,
+      onChainBump,
+      onChainTxSignature,
     } = req.body;
 
     // Detailed logging
@@ -188,6 +473,8 @@ router.post('/voting', authMiddleware, async (req, res) => {
     console.log('description:', description, 'type:', typeof description);
     console.log('choices:', choices, 'type:', typeof choices, 'isArray:', Array.isArray(choices));
     console.log('creatorPubkey:', creatorPubkey, 'type:', typeof creatorPubkey);
+    console.log('onChainPDA:', onChainPDA);
+    console.log('onChainSeed:', onChainSeed);
     console.log('================================');
 
     // Validation with detailed error messages
@@ -197,13 +484,14 @@ router.post('/voting', authMiddleware, async (req, res) => {
     if (!description) missingFields.push('description');
     if (!choices) missingFields.push('choices');
     if (!creatorPubkey) missingFields.push('creatorPubkey');
+    if (!onChainPDA) missingFields.push('onChainPDA');
     
     if (missingFields.length > 0) {
       console.error('Missing fields:', missingFields);
       return res.status(400).json({ 
         error: 'Missing required fields',
         missingFields,
-        received: { flowId, title, description, choices: choices?.length, creatorPubkey }
+        received: { flowId, title, description, choices: choices?.length, creatorPubkey, onChainPDA }
       });
     }
 
@@ -211,16 +499,10 @@ router.post('/voting', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Choices must be between 2 and 10' });
     }
 
-    // Generate unique seed
-    const seed = crypto.randomBytes(16).toString('hex');
-
-    // Derive PDA address
-    const [proposalPda, bump] = PublicKey.findProgramAddressSync(
-      [Buffer.from('voting'), Buffer.from(seed)],
-      PROGRAM_ID
-    );
-
-    const proposalId = proposalPda.toBase58();
+    // Use on-chain data from frontend (already created on-chain)
+    const proposalId = onChainPDA;
+    const seed = onChainSeed?.toString() || '';
+    const bump = onChainBump || 0;
 
     // Create database record
     const proposal = await prisma.votingProposal.create({

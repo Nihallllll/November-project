@@ -34,6 +34,7 @@ app.use((req, res, next) => {
 // ========== PUBLIC ROUTES (No Auth Required) ==========
 app.use("/health", healthRoutes);       // ✅ Public: /health
 app.use("/auth", authRoutes);           // ✅ Public: /auth/register, /auth/login
+app.use("/api", proposalRoutes);        // ✅ Public: /api/voting/:id, /api/multisig/:id, /api/escrow/:id (GET only)
 
 // ========== PROTECTED ROUTES (Auth Required) ==========
 // Apply auth middleware ONLY to /api/v1/* routes
