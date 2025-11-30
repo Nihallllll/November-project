@@ -16,7 +16,7 @@ interface MultisigNodeConfigProps {
 export default function MultisigNodeConfig({ node, onUpdate }: MultisigNodeConfigProps) {
   const { publicKey, connected } = useWallet();
   const anchorWallet = useAnchorWallet();
-  const { flowId } = useParams<{ flowId: string }>();
+  const { id: flowId } = useParams<{ id: string }>();
   
   const [action, setAction] = useState(node.data.action || 'create');
   const [owners, setOwners] = useState<string[]>(node.data.owners || ['']);
@@ -78,6 +78,11 @@ export default function MultisigNodeConfig({ node, onUpdate }: MultisigNodeConfi
   const handleCreateProposal = async () => {
     if (!connected || !publicKey || !anchorWallet) {
       toast.error('Please connect your wallet first');
+      return;
+    }
+
+    if (!flowId) {
+      toast.error('Please save the flow first before creating a multisig proposal');
       return;
     }
 

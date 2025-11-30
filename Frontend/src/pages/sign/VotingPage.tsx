@@ -82,16 +82,23 @@ export default function VotingPage() {
   };
 
   const handleVote = async () => {
-    if (!publicKey || !proposal || selectedChoice === null) return;
+    if (!publicKey || !anchorWallet || !proposal || selectedChoice === null) {
+      if (!anchorWallet) {
+        toast.error('Please connect your wallet first');
+      }
+      return;
+    }
 
     // Check if user is allowed to vote (from on-chain or database)
+    // Only check allowedVoters if it's a non-empty array (restricted voting)
     const allowedVoters = onChainData?.allowedVoters || proposal.allowedVoters;
-    if (allowedVoters && !allowedVoters.includes(publicKey.toString())) {
+    const isRestricted = allowedVoters && allowedVoters.length > 0;
+    if (isRestricted && !allowedVoters.includes(publicKey.toString())) {
       toast.error('You are not eligible to vote in this proposal');
       return;
     }
 
-    const voters = onChainData?.voters || proposal.voters;
+    const voters = onChainData?.voters || proposal.voters || [];
     if (voters.includes(publicKey.toString())) {
       toast.error('You have already voted');
       return;
@@ -100,8 +107,8 @@ export default function VotingPage() {
     try {
       setSubmitting(true);
       
-      // Try on-chain voting first if we have anchor wallet
-      if (anchorWallet && onChainData) {
+      // Always try on-chain voting when we have anchor wallet
+      if (anchorWallet) {
         toast.loading('Submitting vote on-chain...', { id: 'vote' });
         
         const signature = await castVoteTransaction({
@@ -114,11 +121,15 @@ export default function VotingPage() {
         toast.success('Vote cast on-chain!', { id: 'vote' });
         
         // Also update database
-        await axios.post(`${API_BASE_URL}/api/voting/${id}/vote`, {
-          voter: publicKey.toString(),
-          choiceIndex: selectedChoice,
-          txSignature: signature,
-        });
+        try {
+          await axios.post(`${API_BASE_URL}/api/voting/${id}/vote`, {
+            voter: publicKey.toString(),
+            choiceIndex: selectedChoice,
+            txSignature: signature,
+          });
+        } catch (dbErr) {
+          console.log('Database update skipped (may not have endpoint):', dbErr);
+        }
         
         // Refresh both data sources
         await Promise.all([fetchProposal(), fetchOnChainData()]);

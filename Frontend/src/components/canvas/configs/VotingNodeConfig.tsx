@@ -17,7 +17,7 @@ interface VotingNodeConfigProps {
 export default function VotingNodeConfig({ node, onUpdate }: VotingNodeConfigProps) {
   const { publicKey, connected } = useWallet();
   const anchorWallet = useAnchorWallet();
-  const { flowId } = useParams<{ flowId: string }>();
+  const { id: flowId } = useParams<{ id: string }>();
   
   const [action, setAction] = useState(node.data.action || 'create');
   const [title, setTitle] = useState(node.data.title || '');
@@ -90,6 +90,11 @@ export default function VotingNodeConfig({ node, onUpdate }: VotingNodeConfigPro
   const handleCreateProposal = async () => {
     if (!connected || !publicKey || !anchorWallet) {
       toast.error('Please connect your wallet first');
+      return;
+    }
+
+    if (!flowId) {
+      toast.error('Please save the flow first before creating a voting proposal');
       return;
     }
 

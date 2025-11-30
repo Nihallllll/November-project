@@ -55,13 +55,13 @@ export default function MultisigSigningPage() {
   const fetchProposal = async () => {
     try {
       setLoading(true);
-      setError(null);
       const response = await axios.get(`${API_BASE_URL}/api/multisig/${id}`);
       setProposal(response.data);
+      setError(null);
     } catch (err: any) {
       console.error('Failed to fetch proposal:', err);
-      setError(err.response?.data?.message || 'Failed to load proposal');
-      toast.error('Failed to load proposal');
+      // Don't set error here - we'll check on-chain data too
+      // setError will be set later if both fail
     } finally {
       setLoading(false);
     }
@@ -74,6 +74,7 @@ export default function MultisigSigningPage() {
       if (data) {
         console.log('On-chain multisig data:', data);
         setOnChainData(data);
+        setError(null); // Clear error if we got on-chain data
       }
     } catch (err) {
       console.log('No on-chain data found (may be database-only proposal)');
@@ -81,21 +82,24 @@ export default function MultisigSigningPage() {
   };
 
   const handleApprove = async () => {
-    if (!publicKey || !proposal) return;
+    if (!publicKey || !anchorWallet) {
+      toast.error('Please connect your wallet first');
+      return;
+    }
 
-    const owners = onChainData?.owners || proposal.owners;
+    const owners = onChainData?.owners || proposal?.owners || [];
     if (!owners.includes(publicKey.toString())) {
       toast.error('You are not an owner of this proposal');
       return;
     }
 
-    const approvals = onChainData?.approvals || proposal.approvals;
+    const approvals = onChainData?.approvals || proposal?.approvals || [];
     if (approvals.includes(publicKey.toString())) {
       toast.error('You have already approved this proposal');
       return;
     }
 
-    const rejections = onChainData?.rejections || proposal.rejections;
+    const rejections = onChainData?.rejections || proposal?.rejections || [];
     if (rejections.includes(publicKey.toString())) {
       toast.error('You have already rejected this proposal');
       return;
@@ -104,45 +108,31 @@ export default function MultisigSigningPage() {
     try {
       setSubmitting(true);
       
-      // Try on-chain approval first if we have anchor wallet
-      if (anchorWallet && onChainData) {
-        toast.loading('Approving on-chain...', { id: 'approve' });
-        
-        const signature = await approveFlowTransaction({
-          wallet: anchorWallet,
-          multisigPDA: id!,
-        });
-        
-        setTxSignature(signature);
-        toast.success('Approved on-chain!', { id: 'approve' });
-        
-        // Also update database
-        const response = await axios.post(`${API_BASE_URL}/api/multisig/${id}/approve`, {
+      // Always try on-chain approval
+      toast.loading('Approving on-chain...', { id: 'approve' });
+      
+      const signature = await approveFlowTransaction({
+        wallet: anchorWallet,
+        multisigPDA: id!,
+      });
+      
+      setTxSignature(signature);
+      toast.success('Approved on-chain!', { id: 'approve' });
+      
+      // Try to update database (may fail if not in DB)
+      try {
+        await axios.post(`${API_BASE_URL}/api/multisig/${id}/sign`, {
           signer: publicKey.toString(),
+          action: 'approve',
           txSignature: signature,
         });
-        
-        // Refresh both data sources
-        await Promise.all([fetchProposal(), fetchOnChainData()]);
-        
-        if (response.data.thresholdMet) {
-          toast.success('🎉 Threshold reached! Proposal executed.');
-        }
-      } else {
-        // Fallback to database-only approval
-        toast.loading('Approving...', { id: 'approve' });
-        
-        const response = await axios.post(`${API_BASE_URL}/api/multisig/${id}/approve`, {
-          signer: publicKey.toString(),
-        });
-        
-        toast.success('Proposal approved!', { id: 'approve' });
-        await fetchProposal();
-        
-        if (response.data.thresholdMet) {
-          toast.success('🎉 Threshold reached! Proposal executed.');
-        }
+      } catch (dbErr) {
+        console.log('Database update skipped:', dbErr);
       }
+      
+      // Refresh data
+      await fetchOnChainData();
+      if (proposal) await fetchProposal();
     } catch (err: any) {
       console.error('Failed to approve:', err);
       if (err.message?.includes('User rejected')) {
@@ -158,21 +148,24 @@ export default function MultisigSigningPage() {
   };
 
   const handleReject = async () => {
-    if (!publicKey || !proposal) return;
+    if (!publicKey || !anchorWallet) {
+      toast.error('Please connect your wallet first');
+      return;
+    }
 
-    const owners = onChainData?.owners || proposal.owners;
+    const owners = onChainData?.owners || proposal?.owners || [];
     if (!owners.includes(publicKey.toString())) {
       toast.error('You are not an owner of this proposal');
       return;
     }
 
-    const rejections = onChainData?.rejections || proposal.rejections;
+    const rejections = onChainData?.rejections || proposal?.rejections || [];
     if (rejections.includes(publicKey.toString())) {
       toast.error('You have already rejected this proposal');
       return;
     }
 
-    const approvals = onChainData?.approvals || proposal.approvals;
+    const approvals = onChainData?.approvals || proposal?.approvals || [];
     if (approvals.includes(publicKey.toString())) {
       toast.error('You have already approved this proposal');
       return;
@@ -181,37 +174,31 @@ export default function MultisigSigningPage() {
     try {
       setSubmitting(true);
       
-      // Try on-chain rejection first if we have anchor wallet
-      if (anchorWallet && onChainData) {
-        toast.loading('Rejecting on-chain...', { id: 'reject' });
-        
-        const signature = await rejectFlowTransaction({
-          wallet: anchorWallet,
-          multisigPDA: id!,
-        });
-        
-        setTxSignature(signature);
-        toast.success('Rejected on-chain!', { id: 'reject' });
-        
-        // Also update database
-        await axios.post(`${API_BASE_URL}/api/multisig/${id}/reject`, {
+      // Always try on-chain rejection
+      toast.loading('Rejecting on-chain...', { id: 'reject' });
+      
+      const signature = await rejectFlowTransaction({
+        wallet: anchorWallet,
+        multisigPDA: id!,
+      });
+      
+      setTxSignature(signature);
+      toast.success('Rejected on-chain!', { id: 'reject' });
+      
+      // Try to update database (may fail if not in DB)
+      try {
+        await axios.post(`${API_BASE_URL}/api/multisig/${id}/sign`, {
           signer: publicKey.toString(),
+          action: 'reject',
           txSignature: signature,
         });
-        
-        // Refresh both data sources
-        await Promise.all([fetchProposal(), fetchOnChainData()]);
-      } else {
-        // Fallback to database-only rejection
-        toast.loading('Rejecting...', { id: 'reject' });
-        
-        await axios.post(`${API_BASE_URL}/api/multisig/${id}/reject`, {
-          signer: publicKey.toString(),
-        });
-        
-        toast.success('Proposal rejected', { id: 'reject' });
-        await fetchProposal();
+      } catch (dbErr) {
+        console.log('Database update skipped:', dbErr);
       }
+      
+      // Refresh data
+      await fetchOnChainData();
+      if (proposal) await fetchProposal();
     } catch (err: any) {
       console.error('Failed to reject:', err);
       if (err.message?.includes('User rejected')) {
@@ -253,14 +240,22 @@ export default function MultisigSigningPage() {
     );
   }
 
-  if (error || !proposal) {
+  // Show error only if BOTH database and on-chain data are unavailable
+  if (!proposal && !onChainData) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="max-w-md w-full mx-auto p-6">
           <div className="glass border border-destructive/50 rounded-lg p-6 text-center">
             <XCircle className="w-16 h-16 mx-auto mb-4 text-destructive" />
             <h2 className="text-xl font-bold mb-2">Proposal Not Found</h2>
-            <p className="text-muted-foreground">{error || 'Invalid proposal ID'}</p>
+            <p className="text-muted-foreground">
+              {connected ? 'Invalid proposal ID or proposal does not exist' : 'Connect your wallet to load on-chain data'}
+            </p>
+            {!connected && (
+              <div className="mt-4">
+                <WalletMultiButton />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -308,7 +303,7 @@ export default function MultisigSigningPage() {
           <div className="glass border border-border/50 rounded-lg p-6 space-y-4">
             <div>
               <h2 className="text-lg font-semibold mb-2">Description</h2>
-              <p className="text-foreground whitespace-pre-wrap">{proposal.description}</p>
+              <p className="text-foreground whitespace-pre-wrap">{proposal?.description || onChainData?.description || 'No description'}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/50">
@@ -323,7 +318,7 @@ export default function MultisigSigningPage() {
                 <p className="text-sm text-muted-foreground mb-1">Expires</p>
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-primary" />
-                  <span className="font-semibold">{format(new Date(proposal.expiresAt), 'MMM dd, yyyy HH:mm')}</span>
+                  <span className="font-semibold">{proposal?.expiresAt ? format(new Date(proposal.expiresAt), 'MMM dd, yyyy HH:mm') : 'On-chain'}</span>
                 </div>
               </div>
             </div>
@@ -331,7 +326,7 @@ export default function MultisigSigningPage() {
             <div className="pt-4 border-t border-border/50">
               <p className="text-sm text-muted-foreground mb-2">Proposal Address</p>
               <code className="text-xs bg-accent/30 px-3 py-2 rounded block font-mono break-all">
-                {proposal.id}
+                {id}
               </code>
             </div>
           </div>
@@ -340,7 +335,7 @@ export default function MultisigSigningPage() {
           <div className="glass border border-border/50 rounded-lg p-6">
             <h2 className="text-lg font-semibold mb-4">Owners ({owners.length})</h2>
             <div className="space-y-2">
-              {owners.map((owner, idx) => (
+              {owners.map((owner: string, idx: number) => (
                 <div key={idx} className="flex items-center justify-between p-3 bg-accent/30 rounded-lg">
                   <code className="text-sm font-mono flex-1 mr-4 truncate">{owner}</code>
                   {approvals.includes(owner) && (

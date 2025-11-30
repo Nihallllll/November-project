@@ -16,7 +16,7 @@ interface EscrowNodeConfigProps {
 export default function EscrowNodeConfig({ node, onUpdate }: EscrowNodeConfigProps) {
   const { publicKey, connected } = useWallet();
   const anchorWallet = useAnchorWallet();
-  const { flowId } = useParams<{ flowId: string }>();
+  const { id: flowId } = useParams<{ id: string }>();
   
   const [action, setAction] = useState(node.data.action || 'create');
   
@@ -103,6 +103,11 @@ export default function EscrowNodeConfig({ node, onUpdate }: EscrowNodeConfigPro
   const handleCreateProposal = async () => {
     if (!connected || !publicKey || !anchorWallet) {
       toast.error('Please connect your wallet first');
+      return;
+    }
+
+    if (!flowId) {
+      toast.error('Please save the flow first before creating an escrow');
       return;
     }
 
